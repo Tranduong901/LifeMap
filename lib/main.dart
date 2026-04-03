@@ -1,17 +1,57 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/main_navigation_provider.dart';
-import 'views/map/map_view.dart';
-import 'views/profile/profile_view.dart';
-import 'views/timeline/timeline_view.dart';
+import 'views/auth/auth_view.dart';
+import 'views/main_screen.dart';
 
-void main() {
-  runApp(const LifeMapApp());
+const FirebaseOptions _webFirebaseOptions = FirebaseOptions(
+  apiKey: 'AIzaSyBygRDAY1m9goXqkbyW1QUsHxnk7EC8VUM',
+  appId: '1:841983025732:web:df3a4ae37b284cb4db1211',
+  messagingSenderId: '841983025732',
+  projectId: 'lifemap-82da6',
+  authDomain: 'lifemap-82da6.firebaseapp.com',
+  storageBucket: 'lifemap-82da6.firebasestorage.app',
+  measurementId: 'G-GE39814X17',
+);
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  bool firebaseReady = false;
+  String? firebaseInitError;
+
+  try {
+    if (kIsWeb) {
+      await Firebase.initializeApp(options: _webFirebaseOptions);
+    } else {
+      await Firebase.initializeApp();
+    }
+    firebaseReady = true;
+  } catch (error, stackTrace) {
+    firebaseInitError = error.toString();
+    debugPrint('Firebase initialization failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+  runApp(
+    LifeMapApp(
+      firebaseReady: firebaseReady,
+      firebaseInitError: firebaseInitError,
+    ),
+  );
 }
 
 class LifeMapApp extends StatelessWidget {
-  const LifeMapApp({super.key});
+  const LifeMapApp({
+    required this.firebaseReady,
+    this.firebaseInitError,
+    super.key,
+  });
+
+  final bool firebaseReady;
+  final String? firebaseInitError;
 
   @override
   Widget build(BuildContext context) {
@@ -28,47 +68,46 @@ class LifeMapApp extends StatelessWidget {
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         ),
-        home: const MainScreen(),
+        home: AuthWrapper(
+          firebaseReady: firebaseReady,
+          firebaseInitError: firebaseInitError,
+        ),
       ),
     );
   }
 }
 
-class MainScreen extends StatelessWidget {
-  const MainScreen({super.key});
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({
+    required this.firebaseReady,
+    this.firebaseInitError,
+    super.key,
+  });
+
+  final bool firebaseReady;
+  final String? firebaseInitError;
 
   @override
   Widget build(BuildContext context) {
-    final MainNavigationProvider navigationProvider = context
-        .watch<MainNavigationProvider>();
+    if (!firebaseReady) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('LifeMap')),
-      body: IndexedStack(
-        index: navigationProvider.selectedIndex,
-        children: const <Widget>[MapView(), TimelineView(), ProfileView()],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationProvider.selectedIndex,
-        onTap: navigationProvider.updateSelectedIndex,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map_outlined),
-            activeIcon: Icon(Icons.map),
-            label: 'Bản đồ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.timeline_outlined),
-            activeIcon: Icon(Icons.timeline),
-            label: 'Dòng thời gian',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Cá nhân',
-          ),
-        ],
-      ),
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (BuildContext context, AsyncSnapshot<User?> snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasData) {
+          return const MainScreen();
+        }
+
+        return const AuthView();
+      },
     );
   }
 }
