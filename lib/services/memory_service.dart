@@ -16,14 +16,19 @@ class MemoryService {
   static List<Map<String, dynamic>> _pendingOps = <Map<String, dynamic>>[];
   static StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
-  MemoryService({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore})
-    : _auth = firebaseAuth ?? FirebaseAuth.instance,
-      _firestore = firestore ?? FirebaseFirestore.instance {
+  MemoryService({
+    FirebaseAuth? firebaseAuth,
+    FirebaseFirestore? firestore,
+    bool enableConnectivityListener = true,
+  }) : _auth = firebaseAuth ?? FirebaseAuth.instance,
+       _firestore = firestore ?? FirebaseFirestore.instance,
+       _enableConnectivityListener = enableConnectivityListener {
     _bootstrapQueue();
   }
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  final bool _enableConnectivityListener;
 
   CollectionReference<Map<String, dynamic>> get _memoriesRef =>
       _firestore.collection('memories');
@@ -32,6 +37,10 @@ class MemoryService {
     if (!_queueLoaded) {
       await _loadQueueFromPrefs();
       _queueLoaded = true;
+    }
+
+    if (!_enableConnectivityListener) {
+      return;
     }
 
     _connectivitySub ??= Connectivity().onConnectivityChanged.listen((

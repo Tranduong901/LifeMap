@@ -119,3 +119,48 @@ firebase deploy --only firestore:rules
 
 - Dự án đang ưu tiên luồng Web và xác thực Firebase.
 - Các màn hình hiện tại là khung nền tảng để tiếp tục phát triển tính năng chi tiết kỷ niệm.
+
+## Bảo mật cấu hình
+
+- Không commit file thật `android/app/google-services.json` và `ios/Runner/GoogleService-Info.plist` lên Git.
+- Dùng file mẫu trong repo, còn file thật tự đặt ở máy local hoặc trong pipeline secrets.
+- Nếu lỡ commit key/public config, cần xoay (rotate) API key trong Firebase/Cloudinary.
+
+Thiết lập nhanh Android local:
+
+```powershell
+Copy-Item android/app/google-services.example.json android/app/google-services.json
+# Sau đó thay toàn bộ nội dung bằng file thật tải từ Firebase Console.
+```
+
+Lưu ý quan trọng:
+
+- Firebase project ở `lib/main.dart` (Web/Desktop) phải cùng project với `google-services.json` (Android), nếu không sẽ phát sinh lỗi quyền Firestore/Google Sign-In không nhất quán.
+
+## CI cơ bản
+
+Pipeline nên chạy ở mỗi Pull Request:
+
+- `flutter pub get`
+- `dart format --set-exit-if-changed lib test`
+- `flutter analyze`
+- `flutter test`
+
+## Checklist QA trước merge
+
+- Đăng ký/đăng nhập email.
+- Google Sign-In Android và Web.
+- Thêm/sửa/xóa kỷ niệm.
+- Upload đa ảnh, slideshow hiển thị đúng.
+- Map search + lọc theo chủ đề.
+- Offline tạo/sửa/xóa, online lại thì đồng bộ.
+
+## Checklist phát hành
+
+- Android:
+	- Cấu hình keystore release.
+	- Thêm SHA-1 release vào Firebase.
+	- Build `flutter build apk --release` hoặc `flutter build appbundle`.
+- iOS:
+	- Cấu hình Signing & Capabilities trong Xcode.
+	- Build bằng `flutter build ipa` khi đã có provisioning profile hợp lệ.

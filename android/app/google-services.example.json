@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "346832674339",
-    "project_id": "android-final-2f2ea",
-    "storage_bucket": "android-final-2f2ea.firebasestorage.app"
+    "project_number": "YOUR_PROJECT_NUMBER",
+    "project_id": "YOUR_PROJECT_ID",
+    "storage_bucket": "YOUR_STORAGE_BUCKET"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:346832674339:android:20efd2298da8ec2882db96",
+        "mobilesdk_app_id": "YOUR_MOBILE_SDK_APP_ID",
         "android_client_info": {
           "package_name": "vn.edu.tlu.nhom7.lifemap"
         }
       },
       "oauth_client": [
         {
-          "client_id": "346832674339-i2bdabd3uf5cbul9dd4c0i3aqkndr3ic.apps.googleusercontent.com",
+          "client_id": "YOUR_ANDROID_OAUTH_CLIENT_ID.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "vn.edu.tlu.nhom7.lifemap",
-            "certificate_hash": "3199980d409b67f9b3533f7e3f873aff6a422ef4"
+            "certificate_hash": "YOUR_SHA1_CERT_HASH"
           }
         },
         {
-          "client_id": "346832674339-qft1p38h1rp3ppoa7f5acferubb7g85d.apps.googleusercontent.com",
+          "client_id": "YOUR_WEB_OAUTH_CLIENT_ID.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBhRH1LZVqWNfB1B02wk5TfUE5tJcIXiPg"
+          "current_key": "YOUR_FIREBASE_API_KEY"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "346832674339-qft1p38h1rp3ppoa7f5acferubb7g85d.apps.googleusercontent.com",
+              "client_id": "YOUR_WEB_OAUTH_CLIENT_ID.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

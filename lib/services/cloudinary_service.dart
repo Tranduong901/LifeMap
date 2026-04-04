@@ -20,7 +20,23 @@ class CloudinaryService {
     cache: false,
   );
 
-  CloudinaryService();
+  CloudinaryService({
+    Future<String> Function(File file)? uploadFn,
+    Future<File> Function(File file)? compressFn,
+    int maxRetries = 3,
+    Duration uploadTimeout = const Duration(seconds: 35),
+    Duration Function(int attempt)? retryDelayBuilder,
+  }) : _uploadFn = uploadFn,
+       _compressFn = compressFn,
+       _maxRetries = maxRetries,
+       _uploadTimeout = uploadTimeout,
+       _retryDelayBuilder = retryDelayBuilder;
+
+  final Future<String> Function(File file)? _uploadFn;
+  final Future<File> Function(File file)? _compressFn;
+  final int _maxRetries;
+  final Duration _uploadTimeout;
+  final Duration Function(int attempt)? _retryDelayBuilder;
 
   /// Compresses [file] and uploads to Cloudinary unsigned preset.
   /// Returns the secure URL string on success.
@@ -28,37 +44,47 @@ class CloudinaryService {
     log('CloudinaryService.uploadImageFile() start: ${file.path}');
 
     // compress into temp file
-    final File compressed = await _compressFile(file);
+    final File compressed =
+        await (_compressFn?.call(file) ?? _compressFile(file));
 
-    const int maxRetries = 3;
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
       try {
-        final CloudinaryResponse res = await _cloudinary
-            .uploadFile(
-              CloudinaryFile.fromFile(
-                compressed.path,
-                resourceType: CloudinaryResourceType.Image,
-              ),
-            )
-            .timeout(const Duration(seconds: 35));
+        final String secureUrl;
+        if (_uploadFn != null) {
+          secureUrl = await _uploadFn(compressed).timeout(_uploadTimeout);
+        } else {
+          final CloudinaryResponse res = await _cloudinary
+              .uploadFile(
+                CloudinaryFile.fromFile(
+                  compressed.path,
+                  resourceType: CloudinaryResourceType.Image,
+                ),
+              )
+              .timeout(_uploadTimeout);
+          secureUrl = res.secureUrl;
+        }
 
-        log('Cloudinary upload success: ${res.secureUrl}');
-        return res.secureUrl;
+        log('Cloudinary upload success: $secureUrl');
+        return secureUrl;
       } on CloudinaryException catch (e) {
-        final bool shouldRetry = attempt < maxRetries;
-        log('CloudinaryException (attempt $attempt/$maxRetries): ${e.message}');
+        final bool shouldRetry = attempt < _maxRetries;
+        log(
+          'CloudinaryException (attempt $attempt/$_maxRetries): ${e.message}',
+        );
         if (!shouldRetry) {
           rethrow;
         }
       } on TimeoutException {
-        final bool shouldRetry = attempt < maxRetries;
-        log('Cloudinary timeout (attempt $attempt/$maxRetries)');
+        final bool shouldRetry = attempt < _maxRetries;
+        log('Cloudinary timeout (attempt $attempt/$_maxRetries)');
         if (!shouldRetry) {
           rethrow;
         }
       }
 
-      await Future<void>.delayed(Duration(seconds: attempt));
+      final Duration retryDelay =
+          _retryDelayBuilder?.call(attempt) ?? Duration(seconds: attempt);
+      await Future<void>.delayed(retryDelay);
     }
 
     throw Exception('Upload Cloudinary thất bại sau nhiều lần thử.');
