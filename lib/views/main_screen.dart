@@ -9,6 +9,9 @@ import 'timeline/timeline_view.dart';
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
 
+  static const Color _primaryColor = Color(0xFF1A237E);
+  static const Color _accentColor = Color(0xFFFFC107);
+
   @override
   Widget build(BuildContext context) {
     final MainNavigationProvider navigationProvider = context
@@ -19,15 +22,46 @@ class MainScreen extends StatelessWidget {
         index: navigationProvider.selectedIndex,
         children: const <Widget>[MapView(), TimelineView(), ProfileView()],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationProvider.selectedIndex,
-        selectedItemColor: Colors.indigo,
-        onTap: navigationProvider.updateSelectedIndex,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Bản đồ'),
-          BottomNavigationBarItem(icon: Icon(Icons.timeline), label: 'Kỷ niệm'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Cá nhân'),
-        ],
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: NavigationBar(
+            height: 72,
+            backgroundColor: Colors.white,
+            selectedIndex: navigationProvider.selectedIndex,
+            onDestinationSelected: navigationProvider.updateSelectedIndex,
+            indicatorColor: _accentColor.withValues(alpha: 0.22),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: const <NavigationDestination>[
+              NavigationDestination(
+                icon: Icon(Icons.map_outlined, color: _primaryColor),
+                selectedIcon: Icon(Icons.map, color: _accentColor),
+                label: 'Bản đồ',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.timeline_outlined, color: _primaryColor),
+                selectedIcon: Icon(Icons.timeline, color: _accentColor),
+                label: 'Kỷ niệm',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline, color: _primaryColor),
+                selectedIcon: Icon(Icons.person, color: _accentColor),
+                label: 'Cá nhân',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

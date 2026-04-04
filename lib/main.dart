@@ -8,6 +8,10 @@ import 'providers/main_navigation_provider.dart';
 import 'views/auth/auth_view.dart';
 import 'views/main_screen.dart';
 
+const Color _kPrimaryColor = Color(0xFF1A237E);
+const Color _kAccentColor = Color(0xFFFFC107);
+const Color _kAppBackground = Color(0xFFF5F5F7);
+
 const FirebaseOptions _webFirebaseOptions = FirebaseOptions(
   apiKey: 'AIzaSyBygRDAY1m9goXqkbyW1QUsHxnk7EC8VUM',
   appId: '1:841983025732:web:df3a4ae37b284cb4db1211',
@@ -66,7 +70,20 @@ class LifeMapApp extends StatelessWidget {
         title: 'LifeMap',
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+          fontFamily: 'Roboto',
+          scaffoldBackgroundColor: _kAppBackground,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: _kPrimaryColor,
+            primary: _kPrimaryColor,
+            secondary: _kAccentColor,
+            surface: Colors.white,
+            brightness: Brightness.light,
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: _kPrimaryColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
         ),
         home: AuthWrapper(
           firebaseReady: firebaseReady,

@@ -1,16 +1,12 @@
-import 'dart:typed_data';
-import 'dart:ui' as ui;
+import 'dart:ui';
 
-import 'package:flutter/material.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../services/memory_service.dart';
-
-const String _mapboxAccessToken = String.fromEnvironment(
-  'MAPBOX_ACCESS_TOKEN',
-  defaultValue: '',
-);
 
 class MapView extends StatefulWidget {
   const MapView({super.key});
@@ -19,115 +15,112 @@ class MapView extends StatefulWidget {
   State<MapView> createState() => _MapViewState();
 }
 
-class _MapViewState extends State<MapView> {
-  final MemoryService _memoryService = MemoryService();
-  MapboxMap? _mapboxMap;
-  PointAnnotationManager? _pointAnnotationManager;
-  String? _renderedMemorySignature;
-  final Position _defaultPosition = Position(105.8542, 21.0285);
-  Uint8List? _markerIconBytes;
+class _MapViewState extends State<MapView> with AutomaticKeepAliveClientMixin {
+  static const Color _primaryColor = Color(0xFF1A237E);
+  static const Color _accentColor = Color(0xFFFFC107);
 
-  bool get _hasMapboxToken => _mapboxAccessToken.isNotEmpty;
+  final MemoryService _memoryService = MemoryService();
+  final MapController _mapController = MapController();
+  final LatLng _defaultCenter = const LatLng(21.0285, 105.8542);
+  LatLng _currentCenter = const LatLng(21.0285, 105.8542);
+  double _currentZoom = 12;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    if (_hasMapboxToken) {
-      MapboxOptions.setAccessToken(_mapboxAccessToken);
-    }
+    _currentCenter = _defaultCenter;
   }
 
-  Future<void> _onMapCreated(MapboxMap mapboxMap) async {
-    _mapboxMap = mapboxMap;
-    await mapboxMap.setCamera(
-      CameraOptions(center: Point(coordinates: _defaultPosition), zoom: 12),
-    );
-  }
-
-  Future<void> _onStyleLoaded(StyleLoadedEventData data) async {
-    if (_mapboxMap == null) {
-      return;
-    }
-
-    _pointAnnotationManager ??= await _mapboxMap!.annotations
-        .createPointAnnotationManager();
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  Future<Uint8List> _buildMarkerIcon() async {
-    if (_markerIconBytes != null) {
-      return _markerIconBytes!;
-    }
-
-    final ui.PictureRecorder recorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(recorder);
-    final Paint shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.2)
-      ..style = PaintingStyle.fill;
-    final Paint fillPaint = Paint()
-      ..color = Colors.indigo
-      ..style = PaintingStyle.fill;
-    final Paint ringPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(const Offset(34, 34), 24, shadowPaint);
-    canvas.drawCircle(const Offset(30, 30), 22, fillPaint);
-    canvas.drawCircle(const Offset(30, 30), 8, ringPaint);
-
-    final ui.Picture picture = recorder.endRecording();
-    final ui.Image image = await picture.toImage(64, 64);
-    final ByteData? byteData = await image.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-
-    if (byteData == null) {
-      throw Exception('Không thể tạo biểu tượng kỷ niệm.');
-    }
-
-    _markerIconBytes = byteData.buffer.asUint8List();
-    return _markerIconBytes!;
-  }
-
-  Future<void> _syncMemoriesToMap(
+  List<Marker> _buildMarkers(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) async {
-    if (_pointAnnotationManager == null) {
-      return;
-    }
+  ) {
+    return docs
+        .map((QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+          final Map<String, dynamic> data = doc.data();
+          final GeoPoint? location = data['location'] as GeoPoint?;
+          if (location == null) {
+            return null;
+          }
 
-    final String signature = docs
-        .map((QueryDocumentSnapshot<Map<String, dynamic>> doc) => doc.id)
-        .join('|');
-    if (signature == _renderedMemorySignature) {
-      return;
-    }
+          final String title =
+              (data['title'] as String?)?.trim().isNotEmpty == true
+              ? (data['title'] as String).trim()
+              : 'Kỷ niệm';
+          final String description =
+              (data['description'] as String?)?.trim() ?? 'Chưa có mô tả';
+          final LatLng point = LatLng(location.latitude, location.longitude);
 
-    _renderedMemorySignature = signature;
+          return Marker(
+            point: point,
+            width: 44,
+            height: 44,
+            child: GestureDetector(
+              onTap: () =>
+                  _showMemorySummary(title: title, description: description),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.location_on,
+                  size: 30,
+                  color: _primaryColor,
+                ),
+              ),
+            ),
+          );
+        })
+        .whereType<Marker>()
+        .toList(growable: false);
+  }
 
-    await _pointAnnotationManager!.deleteAll();
-    final Uint8List markerIcon = await _buildMarkerIcon();
-
-    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc in docs) {
-      final Map<String, dynamic> data = doc.data();
-      final GeoPoint? location = data['location'] as GeoPoint?;
-      if (location == null) {
-        continue;
-      }
-
-      await _pointAnnotationManager!.create(
-        PointAnnotationOptions(
-          geometry: Point(
-            coordinates: Position(location.longitude, location.latitude),
+  void _showMemorySummary({
+    required String title,
+    required String description,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: TextStyle(color: Colors.grey.shade800),
+                ),
+              ],
+            ),
           ),
-          image: markerIcon,
-          iconSize: 1.2,
-          textField: (data['description'] as String?)?.trim() ?? '',
-        ),
-      );
-    }
+        );
+      },
+    );
   }
 
   Future<void> _showAddMemoryDialog() async {
@@ -201,10 +194,9 @@ class _MapViewState extends State<MapView> {
       await _memoryService.saveMemory(
         description: description,
         imageUrl: imageUrl,
-        lat: _defaultPosition.lat.toDouble(),
-        lng: _defaultPosition.lng.toDouble(),
+        lat: _currentCenter.latitude,
+        lng: _currentCenter.longitude,
       );
-      _renderedMemorySignature = null;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã thêm kỷ niệm thành công.')),
@@ -222,6 +214,10 @@ class _MapViewState extends State<MapView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    final User? user = FirebaseAuth.instance.currentUser;
+    final String? photoUrl = user?.photoURL;
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _memoryService.getMemoriesStream(),
       builder:
@@ -232,82 +228,187 @@ class _MapViewState extends State<MapView> {
             final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
                 snapshot.data?.docs ??
                 <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-
-            if (docs.isNotEmpty) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _syncMemoriesToMap(docs);
-              });
-            }
+            final List<Marker> markers = _buildMarkers(docs);
 
             return Scaffold(
               body: Stack(
                 children: <Widget>[
-                  if (_hasMapboxToken)
-                    MapWidget(
-                      key: const ValueKey<String>('lifemap_mapbox_widget'),
-                      styleUri: MapboxStyles.MAPBOX_STREETS,
-                      cameraOptions: CameraOptions(
-                        center: Point(coordinates: _defaultPosition),
-                        zoom: 12,
-                      ),
-                      onMapCreated: _onMapCreated,
-                      onStyleLoadedListener: _onStyleLoaded,
-                    )
-                  else
-                    Container(
-                      color: Colors.indigo.withValues(alpha: 0.08),
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.all(24),
-                      child: const Text(
-                        'Thiếu MAPBOX_ACCESS_TOKEN.\nHãy chạy app với --dart-define=MAPBOX_ACCESS_TOKEN=your_token',
-                        textAlign: TextAlign.center,
-                      ),
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: _defaultCenter,
+                      initialZoom: 12,
+                      onPositionChanged: (MapPosition position, bool _) {
+                        if (position.center != null) {
+                          _currentCenter = position.center!;
+                        }
+                        if (position.zoom != null) {
+                          final double nextZoom = position.zoom!;
+                          if ((nextZoom - _currentZoom).abs() >= 0.05 &&
+                              mounted) {
+                            setState(() {
+                              _currentZoom = nextZoom;
+                            });
+                          } else {
+                            _currentZoom = nextZoom;
+                          }
+                        }
+                      },
                     ),
-                  Positioned(
-                    top: 20,
-                    left: 16,
-                    right: 16,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.indigo.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(14),
+                    children: <Widget>[
+                      TileLayer(
+                        urlTemplate:
+                            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                        subdomains: const <String>['a', 'b', 'c', 'd'],
+                        keepBuffer: 2,
+                        userAgentPackageName: 'com.lifemap.app',
                       ),
-                      child: const Text(
-                        'Bản đồ kỷ niệm',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                      MarkerLayer(markers: markers),
+                    ],
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 25,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          hintText: 'Tìm kiếm kỷ niệm...',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: _primaryColor,
+                          ),
+                          suffixIcon: Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.grey.shade200,
+                              backgroundImage: photoUrl != null
+                                  ? NetworkImage(photoUrl)
+                                  : null,
+                              child: photoUrl == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 16,
+                                      color: _primaryColor,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 14,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    Positioned(
-                      bottom: 20,
-                      left: 16,
-                      right: 16,
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text(
-                          'Đang tải kỷ niệm...',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    top: 84,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity:
+                          snapshot.connectionState == ConnectionState.waiting
+                          ? 1
+                          : 0,
+                      child: const LinearProgressIndicator(
+                        minHeight: 3,
+                        color: _primaryColor,
+                        backgroundColor: Colors.white70,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: 16,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Text(
+                            'Zoom: ${_currentZoom.toStringAsFixed(1)}',
+                            style: const TextStyle(
+                              color: _primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     ),
+                  ),
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        FloatingActionButton.small(
+                          heroTag: 'map_my_location_fab',
+                          backgroundColor: Colors.white,
+                          elevation: 6,
+                          onPressed: () {
+                            _mapController.move(_currentCenter, _currentZoom);
+                          },
+                          child: const Icon(
+                            Icons.my_location_rounded,
+                            color: _primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FloatingActionButton(
+                          heroTag: 'map_add_memory_fab',
+                          elevation: 12,
+                          highlightElevation: 14,
+                          shape: const CircleBorder(),
+                          backgroundColor: _accentColor,
+                          onPressed: _showAddMemoryDialog,
+                          child: const Icon(
+                            Icons.add_location_alt,
+                            color: _primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              floatingActionButton: FloatingActionButton(
-                backgroundColor: Colors.indigo,
-                onPressed: _showAddMemoryDialog,
-                child: const Icon(Icons.add_location_alt, color: Colors.white),
-              ),
+              floatingActionButton: null,
             );
           },
     );
