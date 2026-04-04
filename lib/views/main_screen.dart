@@ -15,19 +15,39 @@ class MainScreen extends StatelessWidget {
         .watch<MainNavigationProvider>();
 
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(
         index: navigationProvider.selectedIndex,
         children: const <Widget>[MapView(), TimelineView(), ProfileView()],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationProvider.selectedIndex,
-        selectedItemColor: Colors.indigo,
-        onTap: navigationProvider.updateSelectedIndex,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Bản đồ'),
-          BottomNavigationBarItem(icon: Icon(Icons.timeline), label: 'Kỷ niệm'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Cá nhân'),
-        ],
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: NavigationBar(
+            backgroundColor: Colors.white.withValues(alpha: 0.96),
+            indicatorColor: const Color(0xFFFFE7CF),
+            selectedIndex: navigationProvider.selectedIndex,
+            onDestinationSelected: navigationProvider.updateSelectedIndex,
+            destinations: const <NavigationDestination>[
+              NavigationDestination(
+                icon: Icon(Icons.map_outlined),
+                selectedIcon: Icon(Icons.map),
+                label: 'Bản đồ',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.timeline_outlined),
+                selectedIcon: Icon(Icons.timeline),
+                label: 'Kỷ niệm',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Cá nhân',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

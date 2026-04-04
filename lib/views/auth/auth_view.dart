@@ -115,19 +115,18 @@ class _AuthViewState extends State<AuthView> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: <Color>[
-              Color(0xFF312E81),
-              Color(0xFF4F46E5),
-              Color(0xFF818CF8),
+              const Color(0xFFFFF8EE),
+              const Color(0xFFE7F1FF),
+              const Color(0xFFF4EFFF),
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
         child: SafeArea(
@@ -142,15 +141,18 @@ class _AuthViewState extends State<AuthView> {
                     key: ValueKey<bool>(_isLogin),
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF111827) : Colors.white,
+                      color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(28),
                       boxShadow: <BoxShadow>[
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 28,
-                          offset: const Offset(0, 18),
+                          color: const Color(
+                            0xFF1F2937,
+                          ).withValues(alpha: 0.14),
+                          blurRadius: 30,
+                          offset: const Offset(0, 16),
                         ),
                       ],
+                      border: Border.all(color: Colors.white, width: 1.2),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -159,11 +161,14 @@ class _AuthViewState extends State<AuthView> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: <Color>[
-                                Color(0xFF4F46E5),
-                                Color(0xFF7C3AED),
+                                const Color(0xFF0EA5E9),
+                                const Color(0xFF2563EB),
+                                const Color(0xFF1D4ED8),
                               ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(18),
                           ),
@@ -177,8 +182,8 @@ class _AuthViewState extends State<AuthView> {
                               const SizedBox(height: 8),
                               Text(
                                 _isLogin
-                                    ? 'Chào mừng quay lại'
-                                    : 'Tạo tài khoản LifeMap',
+                                    ? 'Chào bạn, cùng tiếp tục hành trình nhé'
+                                    : 'Tạo tài khoản để lưu kỷ niệm của bạn',
                                 style: theme.textTheme.titleLarge?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,
@@ -187,8 +192,8 @@ class _AuthViewState extends State<AuthView> {
                               const SizedBox(height: 4),
                               Text(
                                 _isLogin
-                                    ? 'Đăng nhập để tiếp tục sử dụng ứng dụng'
-                                    : 'Đăng ký để bắt đầu hành trình của bạn',
+                                    ? 'Đăng nhập nhanh để xem bản đồ và dòng thời gian kỷ niệm.'
+                                    : 'Chỉ mất vài giây để bắt đầu lưu lại những nơi bạn đã đi qua.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: Colors.white.withValues(alpha: 0.9),
@@ -202,11 +207,9 @@ class _AuthViewState extends State<AuthView> {
                           TextField(
                             controller: _nameController,
                             decoration: InputDecoration(
-                              labelText: 'Họ tên',
+                              labelText: 'Bạn muốn mình gọi là gì?',
                               filled: true,
-                              fillColor: isDark
-                                  ? const Color(0xFF1F2937)
-                                  : const Color(0xFFF8FAFC),
+                              fillColor: const Color(0xFFF8FAFC),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -218,11 +221,9 @@ class _AuthViewState extends State<AuthView> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
-                            labelText: 'Email',
+                            labelText: 'Email đăng nhập',
                             filled: true,
-                            fillColor: isDark
-                                ? const Color(0xFF1F2937)
-                                : const Color(0xFFF8FAFC),
+                            fillColor: const Color(0xFFF8FAFC),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -233,11 +234,9 @@ class _AuthViewState extends State<AuthView> {
                           controller: _passwordController,
                           obscureText: true,
                           decoration: InputDecoration(
-                            labelText: 'Mật khẩu',
+                            labelText: 'Mật khẩu của bạn',
                             filled: true,
-                            fillColor: isDark
-                                ? const Color(0xFF1F2937)
-                                : const Color(0xFFF8FAFC),
+                            fillColor: const Color(0xFFF8FAFC),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -251,7 +250,7 @@ class _AuthViewState extends State<AuthView> {
                                     ? _signInWithEmail
                                     : _signUpWithEmail),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4F46E5),
+                            backgroundColor: const Color(0xFF0F766E),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -259,8 +258,8 @@ class _AuthViewState extends State<AuthView> {
                             ),
                             elevation: 8,
                             shadowColor: const Color(
-                              0xFF4F46E5,
-                            ).withValues(alpha: 0.35),
+                              0xFF0F766E,
+                            ).withValues(alpha: 0.32),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -296,12 +295,10 @@ class _AuthViewState extends State<AuthView> {
                             ),
                             side: BorderSide(
                               color: const Color(
-                                0xFF4F46E5,
-                              ).withValues(alpha: 0.3),
+                                0xFF0EA5E9,
+                              ).withValues(alpha: 0.4),
                             ),
-                            backgroundColor: isDark
-                                ? const Color(0xFF111827)
-                                : Colors.white,
+                            backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF111827),
                             elevation: 4,
                             shadowColor: Colors.black.withValues(alpha: 0.12),
@@ -320,8 +317,8 @@ class _AuthViewState extends State<AuthView> {
                                   }),
                             child: Text(
                               _isLogin
-                                  ? 'Chưa có tài khoản? Đăng ký ngay'
-                                  : 'Đã có tài khoản? Đăng nhập',
+                                  ? 'Bạn chưa có tài khoản? Tạo mới ngay'
+                                  : 'Bạn đã có tài khoản? Đăng nhập luôn',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),

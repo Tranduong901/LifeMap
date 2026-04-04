@@ -4,12 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-const String _googleWebClientId =
-    '529902522909-naa1skoelbgtek3pfhs3kum1mr1fbdl9.apps.googleusercontent.com';
-
-final GoogleSignIn _sharedGoogleSignIn = GoogleSignIn(
-  clientId: _googleWebClientId,
-);
+// Do not pass a web client ID into the native GoogleSignIn instance.
+final GoogleSignIn _sharedGoogleSignIn = GoogleSignIn();
 
 class AuthService {
   AuthService({
@@ -57,13 +53,22 @@ class AuthService {
         await user.updateDisplayName(normalizedDisplayName);
       }
 
-      await _usersRef.doc(user.uid).set(<String, dynamic>{
-        'uid': user.uid,
-        'email': email,
-        'displayName': normalizedDisplayName,
-        'photoUrl': '',
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      try {
+        await _usersRef.doc(user.uid).set(<String, dynamic>{
+          'uid': user.uid,
+          'email': email,
+          'displayName': normalizedDisplayName,
+          'photoUrl': '',
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied') {
+          rethrow;
+        }
+        debugPrint(
+          'Không có quyền ghi users/${user.uid}. Bỏ qua đồng bộ hồ sơ lúc đăng ký.',
+        );
+      }
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
@@ -212,6 +217,9 @@ class AuthService {
       }, SetOptions(merge: true));
     } on FirebaseException catch (e) {
       debugPrint('Đồng bộ hồ sơ người dùng thất bại: ${e.code} - ${e.message}');
+      if (e.code == 'permission-denied') {
+        return;
+      }
       throw Exception(_mapFirestoreError(e));
     } catch (e) {
       debugPrint('createUserDocIfNeeded error: $e');

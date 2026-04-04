@@ -24,7 +24,10 @@ Future<void> main() async {
   String? firebaseInitError;
 
   try {
-    if (kIsWeb) {
+    if (kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux) {
       await Firebase.initializeApp(options: _webFirebaseOptions);
     } else {
       await Firebase.initializeApp();

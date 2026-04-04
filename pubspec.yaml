@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.1
+  sdk: '>=3.10.0 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -39,6 +39,8 @@ dependencies:
   cloud_firestore: ^5.6.0
   google_sign_in: ^6.3.0
   mapbox_maps_flutter: ^2.8.0
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
   geolocator: ^13.0.2
   camera: ^0.11.1
   cloudinary_public: ^0.23.1
@@ -47,8 +49,10 @@ dependencies:
   provider: ^6.1.5
   intl: ^0.20.2
   image_picker: ^0.8.7+5
-  flutter_image_compress: ^1.1.0
+  flutter_image_compress: ^2.4.0
   path_provider: ^2.0.15
+  shared_preferences: ^2.3.2
+  connectivity_plus: ^6.1.1
 
 dev_dependencies:
   flutter_test:
@@ -102,3 +106,6 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dependency_overrides:
+  flutter_image_compress: ^2.4.0

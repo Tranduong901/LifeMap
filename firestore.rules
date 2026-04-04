@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidMemoryData(data) {
+      return data.userId is string
+        && data.userId == request.auth.uid
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 120
+        && data.description is string
+        && data.description.size() > 0
+        && data.description.size() <= 5000
+        && data.imageUrl is string
+        && data.imageUrls is list
+        && data.imageUrls.size() > 0
+        && data.address is string
+        && data.address.size() <= 300
+        && data.topic is string
+        && data.topic in ['citywalk', 'food', 'trekking', 'beach', 'culture']
+        && data.lat is number
+        && data.lng is number
+        && data.date != null;
+    }
+
+    match /users/{userId} {
+      allow read, update, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
+    }
+
+    match /memories/{memoryId} {
+      allow read: if isOwner(resource.data.userId);
+
+      allow create: if isSignedIn()
+        && isValidMemoryData(request.resource.data);
+
+      allow update, delete: if isOwner(resource.data.userId)
+        && isValidMemoryData(request.resource.data);
+    }
+  }
+}

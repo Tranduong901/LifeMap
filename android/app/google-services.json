@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "841983025732",
-    "project_id": "lifemap-82da6",
-    "storage_bucket": "lifemap-82da6.firebasestorage.app"
+    "project_number": "346832674339",
+    "project_id": "android-final-2f2ea",
+    "storage_bucket": "android-final-2f2ea.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:841983025732:android:194e0ad7025bd2c1db1211",
+        "mobilesdk_app_id": "1:346832674339:android:20efd2298da8ec2882db96",
         "android_client_info": {
           "package_name": "vn.edu.tlu.nhom7.lifemap"
         }
       },
       "oauth_client": [
         {
-          "client_id": "841983025732-kfnvjc5p0jg0o64q4r3fdqgf7836lqo0.apps.googleusercontent.com",
+          "client_id": "346832674339-i2bdabd3uf5cbul9dd4c0i3aqkndr3ic.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "vn.edu.tlu.nhom7.lifemap",
-            "certificate_hash": "97a3dae4e29d42e562531363cfbc8b06ac82c4e2"
+            "certificate_hash": "3199980d409b67f9b3533f7e3f873aff6a422ef4"
           }
         },
         {
-          "client_id": "841983025732-3rlore1rrvb717c237gt9fav4ddtjdpm.apps.googleusercontent.com",
+          "client_id": "346832674339-qft1p38h1rp3ppoa7f5acferubb7g85d.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyB9zdyxWJPyunzfICD-tZzgByuHHt9E7_8"
+          "current_key": "AIzaSyBhRH1LZVqWNfB1B02wk5TfUE5tJcIXiPg"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "841983025732-3rlore1rrvb717c237gt9fav4ddtjdpm.apps.googleusercontent.com",
+              "client_id": "346832674339-qft1p38h1rp3ppoa7f5acferubb7g85d.apps.googleusercontent.com",
               "client_type": 3
             }
           ]
