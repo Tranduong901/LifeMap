@@ -53,6 +53,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check_sha1.ps1
 
 Nếu kết quả `SHA-1 CHUA KHOP`, vào Firebase Console và thêm fingerprint SHA-1 debug, sau đó tải lại file `android/app/google-services.json`.
 
+Kiểm tra SHA-1 release (khi có keystore phát hành):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check_release_sha1.ps1 -KeystorePath .\android\app\upload-keystore.jks -Alias upload -StorePass <store-pass> -KeyPass <key-pass>
+```
+
 ### 1.2 Cloudinary
 
 - Ảnh được nén và upload trực tiếp lên Cloudinary.
