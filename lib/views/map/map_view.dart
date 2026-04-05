@@ -11,6 +11,7 @@ import '../../models/memory_model.dart';
 import '../../models/memory_topic.dart';
 import '../../services/memory_service.dart';
 import '../timeline/memory_detail_view.dart';
+import '../timeline/add_memory_view.dart';
 
 const String _mapboxAccessToken = String.fromEnvironment(
   'MAPBOX_ACCESS_TOKEN',
@@ -346,6 +347,11 @@ class _MapViewState extends State<MapView> {
           });
         }
 
+        final double fabBottom =
+            MediaQuery.of(context).padding.bottom +
+            kBottomNavigationBarHeight +
+            12.0;
+
         return Scaffold(
           body: Stack(
             children: <Widget>[
@@ -470,17 +476,36 @@ class _MapViewState extends State<MapView> {
                   ),
                 ),
               ),
-            ],
-          ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              FloatingActionButton.small(
-                heroTag: 'gps_btn',
-                onPressed: _moveToCurrentLocation,
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.indigo,
-                child: const Icon(Icons.my_location),
+
+              // Floating buttons positioned over the map
+              Positioned(
+                bottom: fabBottom,
+                right: 16,
+                child: FloatingActionButton(
+                  heroTag: 'add_memory_btn',
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext c) => const AddMemoryView(),
+                      ),
+                    );
+                  },
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                ),
+              ),
+
+              Positioned(
+                bottom: fabBottom,
+                left: 16,
+                child: FloatingActionButton.small(
+                  heroTag: 'gps_btn',
+                  onPressed: _moveToCurrentLocation,
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.indigo,
+                  child: const Icon(Icons.my_location),
+                ),
               ),
             ],
           ),

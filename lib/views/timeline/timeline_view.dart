@@ -22,6 +22,10 @@ class _TimelineViewState extends State<TimelineView> {
   DateTime? _selectedMonth;
   TimelineGroupMode _groupMode = TimelineGroupMode.month;
   final Set<String> _expandedGroups = <String>{};
+  String? _highlightedMemoryId;
+  // Toggle this for quick debugging: render a simplified list to avoid complex layout
+  // Set to false to show the redesigned timeline UI.
+  final bool _debugSimpleTimeline = false;
 
   @override
   void dispose() {
@@ -32,36 +36,32 @@ class _TimelineViewState extends State<TimelineView> {
   Future<void> _openAddMemoryView([MemoryModel? memory]) async {
     await Navigator.of(context).push(
       MaterialPageRoute<bool>(
-        builder: (BuildContext context) => AddMemoryView(initialMemory: memory),
+        builder: (BuildContext c) => AddMemoryView(initialMemory: memory),
       ),
     );
   }
 
   Future<void> _deleteMemory(MemoryModel memory) async {
-    final bool? agreed = await showDialog<bool>(
+    final bool? ok = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Xóa kỷ niệm'),
-          content: Text('Bạn chắc chắn muốn xóa "${memory.title}"?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Hủy'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Xóa'),
-            ),
-          ],
-        );
-      },
+      builder: (BuildContext c) => AlertDialog(
+        title: const Text('Xóa kỷ niệm'),
+        content: Text('Bạn chắc chắn muốn xóa "${memory.title}"?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(c).pop(false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(c).pop(true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
     );
-
-    if (agreed != true) {
+    if (ok != true) {
       return;
     }
-
     try {
       await _memoryService.deleteMemory(docId: memory.id);
       if (mounted) {
@@ -78,31 +78,13 @@ class _TimelineViewState extends State<TimelineView> {
     }
   }
 
-  List<MemoryModel> _applyFilters(List<MemoryModel> memories) {
-    final String keyword = _searchController.text.trim().toLowerCase();
-
-    return memories.where((MemoryModel memory) {
-      final bool keywordMatched =
-          keyword.isEmpty ||
-          memory.title.toLowerCase().contains(keyword) ||
-          memory.description.toLowerCase().contains(keyword);
-
-      final bool monthMatched =
-          _selectedMonth == null ||
-          (memory.date.year == _selectedMonth!.year &&
-              memory.date.month == _selectedMonth!.month);
-
-      return keywordMatched && monthMatched;
-    }).toList();
-  }
-
   String _groupKey(MemoryModel memory) {
-    final DateTime d = memory.date;
+    final d = memory.date;
     switch (_groupMode) {
       case TimelineGroupMode.week:
-        final int weekday = d.weekday;
-        final DateTime start = d.subtract(Duration(days: weekday - 1));
-        final DateTime end = start.add(const Duration(days: 6));
+        final weekday = d.weekday;
+        final start = d.subtract(Duration(days: weekday - 1));
+        final end = start.add(const Duration(days: 6));
         return 'week-${DateFormat('yyyyMMdd').format(start)}|Tuần ${DateFormat('dd/MM').format(start)} - ${DateFormat('dd/MM').format(end)}';
       case TimelineGroupMode.year:
         return 'year-${d.year}|Năm ${d.year}';
@@ -112,64 +94,346 @@ class _TimelineViewState extends State<TimelineView> {
   }
 
   Map<String, List<MemoryModel>> _groupMemories(List<MemoryModel> memories) {
-    final Map<String, List<MemoryModel>> groups = <String, List<MemoryModel>>{};
-    for (final MemoryModel memory in memories) {
-      final String key = _groupKey(memory);
-      groups.putIfAbsent(key, () => <MemoryModel>[]).add(memory);
+    final Map<String, List<MemoryModel>> m = <String, List<MemoryModel>>{};
+    for (final MemoryModel mem in memories) {
+      final k = _groupKey(mem);
+      m.putIfAbsent(k, () => <MemoryModel>[]).add(mem);
     }
-    return groups;
+    return m;
+  }
+
+  List<MemoryModel> _applyFilters(List<MemoryModel> memories) {
+    final kw = _searchController.text.trim().toLowerCase();
+    return memories.where((MemoryModel memory) {
+      final bool matchesKeyword =
+          kw.isEmpty ||
+          memory.title.toLowerCase().contains(kw) ||
+          memory.description.toLowerCase().contains(kw);
+      final bool matchesMonth =
+          _selectedMonth == null ||
+          (memory.date.year == _selectedMonth!.year &&
+              memory.date.month == _selectedMonth!.month);
+      return matchesKeyword && matchesMonth;
+    }).toList();
+  }
+
+  Widget _buildMemoryItem(MemoryModel memory) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            width: 56,
+            child: Column(
+              children: <Widget>[
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 92,
+                  child: Container(
+                    width: 3,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF2196F3), Color(0xFF7C4DFF)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+          Expanded(
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 220),
+              scale: _highlightedMemoryId == memory.id ? 1.03 : 1.0,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTapDown: (_) =>
+                    setState(() => _highlightedMemoryId = memory.id),
+                onTapCancel: () => setState(() => _highlightedMemoryId = null),
+                onTap: () {
+                  setState(() => _highlightedMemoryId = null);
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (BuildContext c) =>
+                          MemoryDetailView(memory: memory),
+                    ),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: const <BoxShadow>[
+                      BoxShadow(
+                        color: Color(0x1F000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: <Widget>[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Stack(
+                          children: <Widget>[
+                            Image.network(
+                              memory.imageUrls.isNotEmpty
+                                  ? memory.imageUrls.first
+                                  : memory.imageUrl,
+                              width: 92,
+                              height: 92,
+                              fit: BoxFit.cover,
+                              errorBuilder:
+                                  (BuildContext c, Object e, StackTrace? st) =>
+                                      Container(
+                                        width: 92,
+                                        height: 92,
+                                        color: Colors.indigo.withAlpha(20),
+                                        child: const Icon(Icons.photo),
+                                      ),
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              height: 36,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black45,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white70,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Text(
+                                  '📍',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              memory.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              DateFormat('dd/MM/yyyy').format(memory.date),
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              memory.address.isEmpty
+                                  ? 'Chưa cập nhật địa chỉ'
+                                  : memory.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: MemoryTopic.color(
+                                  memory.topic,
+                                ).withAlpha(31),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                MemoryTopic.label(memory.topic),
+                                style: TextStyle(
+                                  color: MemoryTopic.color(memory.topic),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        onSelected: (String v) {
+                          if (v == 'edit') {
+                            _openAddMemoryView(memory);
+                          } else if (v == 'delete') {
+                            _deleteMemory(memory);
+                          } else {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (BuildContext c) =>
+                                    MemoryDetailView(memory: memory),
+                              ),
+                            );
+                          }
+                        },
+                        itemBuilder: (BuildContext c) =>
+                            const <PopupMenuEntry<String>>[
+                              PopupMenuItem<String>(
+                                value: 'view',
+                                child: Text('Xem chi tiết'),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'edit',
+                                child: Text('Chỉnh sửa'),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'delete',
+                                child: Text('Xóa'),
+                              ),
+                            ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dòng thời gian'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        actions: <Widget>[
-          IconButton(
-            onPressed: () => _openAddMemoryView(),
-            icon: const Icon(Icons.add),
-            tooltip: 'Thêm kỷ niệm',
+        toolbarHeight: 56,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2196F3), Color(0xFF7C4DFF)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
           ),
-        ],
+        ),
+        title: Row(
+          children: const <Widget>[
+            Text('📅', style: TextStyle(fontSize: 20)),
+            SizedBox(width: 8),
+            Text(
+              'Dòng thời gian',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[],
       ),
       body: StreamBuilder<List<MemoryModel>>(
         stream: _memoryService.getMemoriesStream(),
-        builder: (BuildContext context, AsyncSnapshot<List<MemoryModel>> snapshot) {
-          if (snapshot.hasError) {
+        builder: (BuildContext context, AsyncSnapshot<List<MemoryModel>> snap) {
+          if (snap.hasError) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Không thể tải kỷ niệm: ${snapshot.error}',
-                  textAlign: TextAlign.center,
-                ),
+                child: Text('Không thể tải kỷ niệm: ${snap.error}'),
               ),
             );
           }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final List<MemoryModel> memories = List<MemoryModel>.from(
-            snapshot.data ?? <MemoryModel>[],
+            snap.data ?? <MemoryModel>[],
           );
           final List<MemoryModel> filtered = _applyFilters(memories);
-          final Map<String, List<MemoryModel>> grouped = _groupMemories(
-            filtered,
+          final grouped = _groupMemories(filtered);
+          final entries = grouped.entries.toList();
+          // Debug: show counts
+          debugPrint(
+            'TimelineView: server=${memories.length}, filtered=${filtered.length}, groups=${entries.length}',
           );
-          final List<MapEntry<String, List<MemoryModel>>> entries = grouped
-              .entries
-              .toList();
 
           if (memories.isEmpty) {
             return const Center(
               child: Text(
                 'Chưa có kỷ niệm nào. Hãy thêm kỷ niệm đầu tiên ở màn hình bản đồ.',
                 textAlign: TextAlign.center,
+              ),
+            );
+          }
+
+          if (_debugSimpleTimeline) {
+            if (filtered.isEmpty) {
+              return const Expanded(
+                child: Center(
+                  child: Text('Không tìm thấy kỷ niệm phù hợp bộ lọc.'),
+                ),
+              );
+            }
+            return Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: filtered.length,
+                itemBuilder: (BuildContext c, int i) {
+                  final MemoryModel m = filtered[i];
+                  return ListTile(
+                    title: Text(m.title.isEmpty ? '(Không tiêu đề)' : m.title),
+                    subtitle: Text(DateFormat('dd/MM/yyyy').format(m.date)),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (String v) {
+                        if (v == 'edit') {
+                          _openAddMemoryView(m);
+                        } else if (v == 'delete') {
+                          _deleteMemory(m);
+                        }
+                      },
+                      itemBuilder: (BuildContext c) =>
+                          const <PopupMenuEntry<String>>[
+                            PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Text('Chỉnh sửa'),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Text('Xóa'),
+                            ),
+                          ],
+                    ),
+                  );
+                },
               ),
             );
           }
@@ -204,9 +468,12 @@ class _TimelineViewState extends State<TimelineView> {
                           initialDatePickerMode: DatePickerMode.year,
                         );
                         if (month != null) {
-                          setState(() {
-                            _selectedMonth = DateTime(month.year, month.month);
-                          });
+                          setState(
+                            () => _selectedMonth = DateTime(
+                              month.year,
+                              month.month,
+                            ),
+                          );
                         }
                       },
                       icon: const Icon(Icons.filter_alt_outlined),
@@ -219,37 +486,40 @@ class _TimelineViewState extends State<TimelineView> {
                   ],
                 ),
               ),
+
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: SegmentedButton<TimelineGroupMode>(
                   segments: const <ButtonSegment<TimelineGroupMode>>[
-                    ButtonSegment<TimelineGroupMode>(
+                    ButtonSegment(
                       value: TimelineGroupMode.week,
                       label: Text('Tuần'),
                     ),
-                    ButtonSegment<TimelineGroupMode>(
+                    ButtonSegment(
                       value: TimelineGroupMode.month,
                       label: Text('Tháng'),
                     ),
-                    ButtonSegment<TimelineGroupMode>(
+                    ButtonSegment(
                       value: TimelineGroupMode.year,
                       label: Text('Năm'),
                     ),
                   ],
                   selected: <TimelineGroupMode>{_groupMode},
-                  onSelectionChanged: (Set<TimelineGroupMode> value) {
+                  onSelectionChanged: (Set<TimelineGroupMode> v) {
                     setState(() {
-                      _groupMode = value.first;
+                      _groupMode = v.first;
                       _expandedGroups.clear();
                     });
                   },
                 ),
               ),
+
               if (_selectedMonth != null)
                 TextButton(
                   onPressed: () => setState(() => _selectedMonth = null),
                   child: const Text('Xóa bộ lọc thời gian'),
                 ),
+
               if (filtered.isEmpty)
                 const Expanded(
                   child: Center(
@@ -261,159 +531,101 @@ class _TimelineViewState extends State<TimelineView> {
                   child: ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: entries.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final MapEntry<String, List<MemoryModel>> entry =
-                          entries[index];
-                      final String groupTitle = entry.key.split('|').last;
-                      final List<MemoryModel> groupItems = entry.value;
+                    itemBuilder: (BuildContext ctx, int index) {
+                      final entry = entries[index];
+                      final groupTitle = entry.key.split('|').last;
+                      final groupItems = entry.value;
                       final bool expanded =
                           _expandedGroups.contains(entry.key) || index == 0;
 
-                      return Card(
-                        elevation: 1.5,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: ExpansionTile(
-                          key: ValueKey<String>('group-${entry.key}'),
-                          initiallyExpanded: expanded,
-                          onExpansionChanged: (bool isExpanded) {
-                            setState(() {
-                              if (isExpanded) {
-                                _expandedGroups.add(entry.key);
-                              } else {
-                                _expandedGroups.remove(entry.key);
-                              }
-                            });
-                          },
-                          title: Text(
-                            '$groupTitle (${groupItems.length})',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          children: groupItems.map((MemoryModel memory) {
-                            final String formattedDate = DateFormat(
-                              'dd/MM/yyyy',
-                            ).format(memory.date);
-                            final String thumb = memory.imageUrls.isNotEmpty
-                                ? memory.imageUrls.first
-                                : memory.imageUrl;
-                            return AnimatedSize(
-                              duration: const Duration(milliseconds: 220),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  4,
-                                  8,
-                                  4,
-                                ),
-                                leading: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    thumb,
-                                    width: 58,
-                                    height: 58,
-                                    fit: BoxFit.cover,
-                                    errorBuilder:
-                                        (
-                                          BuildContext context,
-                                          Object error,
-                                          StackTrace? stackTrace,
-                                        ) {
-                                          return Container(
-                                            width: 58,
-                                            height: 58,
-                                            color: Colors.indigo.withValues(
-                                              alpha: 0.1,
-                                            ),
-                                            child: const Icon(Icons.photo),
-                                          );
-                                        },
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          // group header with timeline marker
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                            child: Row(
+                              children: <Widget>[
+                                SizedBox(
+                                  width: 56,
+                                  child: Column(
+                                    children: <Widget>[
+                                      Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Color(0xFF7C4DFF),
+                                              Color(0xFF2196F3),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                title: Text(
-                                  memory.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(formattedDate),
-                                    Text(
-                                      memory.address.isEmpty
-                                          ? 'Chưa cập nhật địa chỉ'
-                                          : memory.address,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Container(
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
+                                        horizontal: 12,
+                                        vertical: 6,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: MemoryTopic.color(
-                                          memory.topic,
-                                        ).withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(20),
+                                        color: const Color(
+                                          0xFF7C4DFF,
+                                        ).withAlpha(20),
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Text(
-                                        MemoryTopic.label(memory.topic),
-                                        style: TextStyle(
-                                          color: MemoryTopic.color(
-                                            memory.topic,
-                                          ),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                        groupTitle,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                trailing: PopupMenuButton<String>(
-                                  onSelected: (String value) {
-                                    if (value == 'edit') {
-                                      _openAddMemoryView(memory);
-                                    } else if (value == 'delete') {
-                                      _deleteMemory(memory);
-                                    } else {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (BuildContext context) =>
-                                              MemoryDetailView(memory: memory),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  itemBuilder: (BuildContext context) {
-                                    return const <PopupMenuEntry<String>>[
-                                      PopupMenuItem<String>(
-                                        value: 'view',
-                                        child: Text('Xem chi tiết'),
-                                      ),
-                                      PopupMenuItem<String>(
-                                        value: 'edit',
-                                        child: Text('Chỉnh sửa'),
-                                      ),
-                                      PopupMenuItem<String>(
-                                        value: 'delete',
-                                        child: Text('Xóa'),
-                                      ),
-                                    ];
-                                  },
-                                ),
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (BuildContext context) =>
-                                        MemoryDetailView(memory: memory),
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
+
+                          Card(
+                            elevation: 1.5,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: ExpansionTile(
+                              key: ValueKey<String>('group-${entry.key}'),
+                              initiallyExpanded: expanded,
+                              onExpansionChanged: (bool isExpanded) {
+                                setState(() {
+                                  if (isExpanded) {
+                                    _expandedGroups.add(entry.key);
+                                  } else {
+                                    _expandedGroups.remove(entry.key);
+                                  }
+                                });
+                              },
+                              title: Text(
+                                '$groupTitle (${groupItems.length})',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            );
-                          }).toList(),
-                        ),
+                              children: <Widget>[
+                                for (final MemoryModel memory in groupItems)
+                                  _buildMemoryItem(memory),
+                              ],
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
