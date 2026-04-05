@@ -10,6 +10,7 @@ import '../../models/memory_model.dart';
 import '../../models/memory_topic.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/memory_service.dart';
+import '../../services/location_service.dart';
 import 'camera_capture_view.dart';
 
 class AddMemoryView extends StatefulWidget {
@@ -131,6 +132,19 @@ class _AddMemoryViewState extends State<AddMemoryView> {
         _gpsAccuracy = position.accuracy;
         _lastGpsAt = position.timestamp;
       });
+
+      // Try to resolve address automatically if address field is empty
+      try {
+        final String resolved = await LocationService.getAddressFromLatLng(
+          _latitude!,
+          _longitude!,
+        );
+        if (mounted && _addressController.text.trim().isEmpty) {
+          setState(() => _addressController.text = resolved);
+        }
+      } catch (_) {
+        // ignore resolution errors silently
+      }
 
       if (showSuccessMessage) {
         _showMessage('Đã lấy vị trí GPS chính xác.');
