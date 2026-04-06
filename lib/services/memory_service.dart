@@ -267,6 +267,33 @@ class MemoryService {
     }
   }
 
+  /// Retrieve memories once (non-real-time) to avoid platform-channel
+  /// threading issues on some desktop platforms.
+  Future<List<MemoryModel>> getMemoriesOnce() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        return <MemoryModel>[];
+      }
+
+      final QuerySnapshot<Map<String, dynamic>> snapshot = await _memoriesRef
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      final List<MemoryModel> serverItems = snapshot.docs
+          .map(
+            (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+                MemoryModel.fromMap(doc.data(), doc.id),
+          )
+          .toList();
+
+      return _applyPendingPreview(serverItems, user.uid);
+    } catch (e) {
+      debugPrint('getMemoriesOnce error: $e');
+      rethrow;
+    }
+  }
+
   Future<void> saveMemory(MemoryModel memory) async {
     final User? user = _auth.currentUser;
     if (user == null) {

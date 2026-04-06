@@ -16,6 +16,28 @@ class MemoryDetailView extends StatefulWidget {
 
 class _MemoryDetailViewState extends State<MemoryDetailView> {
   int _currentImageIndex = 0;
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _addressController;
+  late String _selectedTopic;
+
+  @override
+  void initState() {
+    super.initState();
+    final MemoryModel m = widget.memory;
+    _titleController = TextEditingController(text: m.title);
+    _descriptionController = TextEditingController(text: m.description);
+    _addressController = TextEditingController(text: m.address);
+    _selectedTopic = m.topic.isEmpty ? MemoryTopic.citywalk : m.topic;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +102,7 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                               ) {
                                 return Container(
                                   alignment: Alignment.center,
-                                  color: Colors.indigo.withValues(alpha: 0.1),
+                                  color: Colors.indigo.withOpacity(0.1),
                                   child: const Icon(
                                     Icons.broken_image_outlined,
                                     size: 52,
@@ -101,7 +123,7 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
+                          color: Colors.black.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -121,8 +143,8 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: <Color>[
-                            Colors.black.withValues(alpha: 0),
-                            Colors.black.withValues(alpha: 0.62),
+                            Colors.black.withOpacity(0),
+                            Colors.black.withOpacity(0.62),
                           ],
                         ),
                       ),
@@ -140,60 +162,10 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
               ),
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                Chip(
-                  avatar: Icon(
-                    Icons.circle,
-                    size: 12,
-                    color: MemoryTopic.color(memory.topic),
-                  ),
-                  label: Text('Chủ đề: ${MemoryTopic.label(memory.topic)}'),
-                ),
-                Chip(
-                  avatar: const Icon(Icons.calendar_month, size: 18),
-                  label: Text('Ngày: $formattedDate'),
-                ),
-                Chip(
-                  avatar: const Icon(Icons.pin_drop_outlined, size: 18),
-                  label: Text(
-                    '${memory.lat.toStringAsFixed(5)}, ${memory.lng.toStringAsFixed(5)}',
-                  ),
-                ),
-              ],
-            ),
+            // Show a detail form populated with memory content (read-only)
             const SizedBox(height: 12),
             Card(
               elevation: 0,
-              color: const Color(0xFFF1F6FF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Icon(Icons.place_outlined, color: Color(0xFF3353A4)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        memory.address.isEmpty
-                            ? 'Bạn chưa thêm địa chỉ cho kỷ niệm này.'
-                            : memory.address,
-                        style: const TextStyle(height: 1.35),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Card(
-              elevation: 0,
-              color: const Color(0xFFFFF6EC),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -202,18 +174,130 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text(
-                      'Nhật ký kỷ niệm',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
+                    TextFormField(
+                      controller: _titleController,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Tiêu đề',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      memory.description,
-                      style: const TextStyle(height: 1.55),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _descriptionController,
+                      readOnly: true,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Nội dung',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _addressController,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Địa chỉ',
+                        prefixIcon: Icon(Icons.place_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: TextFormField(
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: 'Lat, Lng',
+                              border: const OutlineInputBorder(),
+                              hintText:
+                                  '${memory.lat.toStringAsFixed(6)}, ${memory.lng.toStringAsFixed(6)}',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: 'Ngày',
+                              border: const OutlineInputBorder(),
+                              hintText: formattedDate,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedTopic,
+                      decoration: const InputDecoration(
+                        labelText: 'Chủ đề',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: MemoryTopic.values
+                          .map(
+                            (String topic) => DropdownMenuItem<String>(
+                              value: topic,
+                              child: Text(MemoryTopic.label(topic)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: null,
+                    ),
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Thông tin thêm',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: <Widget>[
+                          const Icon(Icons.fingerprint, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(child: SelectableText('ID: ${memory.id}')),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: <Widget>[
+                          const Icon(Icons.person_outline, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SelectableText('User ID: ${memory.userId}'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (memory.imageUrls.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const SizedBox(height: 8),
+                          Text(
+                            'URLs ảnh (${memory.imageUrls.length})',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 6),
+                          for (final String url in memory.imageUrls)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: SelectableText(
+                                url,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                   ],
                 ),
               ),

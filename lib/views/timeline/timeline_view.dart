@@ -37,6 +37,16 @@ class _TimelineViewState extends State<TimelineView> {
     super.dispose();
   }
 
+  // Use this to schedule state changes safely from async callbacks or
+  // plugin callbacks that may come on non-platform threads.
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(fn);
+    });
+  }
+
   Future<void> _openAddMemoryView([MemoryModel? memory]) async {
     await Navigator.of(context).push(
       MaterialPageRoute<bool>(
@@ -72,6 +82,8 @@ class _TimelineViewState extends State<TimelineView> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã xóa kỷ niệm thành công.')),
         );
+        // Refresh list after deletion
+        _safeSetState(() {});
       }
     } catch (e) {
       if (mounted) {
@@ -173,20 +185,19 @@ class _TimelineViewState extends State<TimelineView> {
           Expanded(
             child: AnimatedScale(
               duration: const Duration(milliseconds: 220),
-              scale: _highlightedMemoryId == memory.id ? 1.03 : 1.0,
+              scale: 1.0,
               child: InkWell(
                 borderRadius: BorderRadius.circular(22),
-                onTapDown: (_) =>
-                    setState(() => _highlightedMemoryId = memory.id),
-                onTapCancel: () => setState(() => _highlightedMemoryId = null),
                 onTap: () {
-                  setState(() => _highlightedMemoryId = null);
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (BuildContext c) =>
-                          MemoryDetailView(memory: memory),
-                    ),
-                  );
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext c) =>
+                            MemoryDetailView(memory: memory),
+                      ),
+                    );
+                  });
                 },
                 child: Container(
                   decoration: BoxDecoration(
@@ -385,8 +396,8 @@ class _TimelineViewState extends State<TimelineView> {
         ),
         actions: <Widget>[],
       ),
-      body: StreamBuilder<List<MemoryModel>>(
-        stream: _memoryService.getMemoriesStream(),
+      body: FutureBuilder<List<MemoryModel>>(
+        future: _memoryService.getMemoriesOnce(),
         builder: (BuildContext context, AsyncSnapshot<List<MemoryModel>> snap) {
           if (snap.hasError) {
             return Center(
