@@ -54,13 +54,17 @@ class _ProfileViewState extends State<ProfileView> {
         ).showSnackBar(SnackBar(content: Text('Lỗi tải ảnh: $e')));
       }
     } finally {
-      if (mounted) setState(() => _isUploading = false);
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 
   String _getInitials(String name) {
     final String trimmed = name.trim();
-    if (trimmed.isEmpty) return 'U';
+    if (trimmed.isEmpty) {
+      return 'U';
+    }
     return trimmed[0].toUpperCase();
   }
 
@@ -119,11 +123,12 @@ class _ProfileViewState extends State<ProfileView> {
 
   Widget _buildCategoryPieFromCounts(Map<String, int> counts) {
     final int total = counts.values.fold<int>(0, (int a, int b) => a + b);
-    if (total == 0)
+    if (total == 0) {
       return const SizedBox(
         height: 140,
         child: Center(child: Text('Chưa có dữ liệu')),
       );
+    }
 
     final List<PieChartSectionData> sections = <PieChartSectionData>[];
     final List<Widget> legend = <Widget>[];
@@ -233,10 +238,11 @@ class _ProfileViewState extends State<ProfileView> {
               try {
                 await AuthService().signOut();
               } catch (e) {
-                if (context.mounted)
+                if (context.mounted) {
                   ScaffoldMessenger.of(
                     context,
                   ).showSnackBar(SnackBar(content: Text('$e')));
+                }
               }
             },
           ),

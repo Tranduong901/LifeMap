@@ -16,12 +16,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Debug: show commit and profile snippet
+      - name: "Debug: show commit and profile snippet"
         run: |
           echo "Commit: $(git rev-parse --short HEAD)"
           echo "Files changed in HEAD:"
-          git --no-pager show --name-only --pretty="" HEAD | sed -n '1,40p' || true
-          echo "--- head of lib/views/profile/profile_view.dart ---"
+          git --no-pager show --name-only HEAD | sed -n '1,40p' || true
+          echo '--- head of lib/views/profile/profile_view.dart ---'
           sed -n '1,120p' lib/views/profile/profile_view.dart || true
 
       - name: Setup Flutter
