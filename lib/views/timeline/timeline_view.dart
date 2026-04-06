@@ -110,26 +110,25 @@ class _TimelineViewState extends State<TimelineView> {
     final raw = _searchController.text.trim().toLowerCase();
     final List<String> tokens = raw.isEmpty
         ? <String>[]
-        : raw.split(RegExp(r"\s+"))
-            .where((String t) => t.isNotEmpty)
-            .toList();
+        : raw.split(RegExp(r"\s+")).where((String t) => t.isNotEmpty).toList();
 
     return memories.where((MemoryModel memory) {
       // keyword matching across multiple fields (title, description, address, emotion_tag)
       final haystack = <String>[
         memory.title,
         memory.description,
-  memory.address,
-  '',
+        memory.address,
+        '',
       ].map((String s) => s.toLowerCase()).join(' ');
 
       final bool matchesKeyword = tokens.isEmpty
           ? true
           : tokens.every((String token) => haystack.contains(token));
 
-      final bool matchesMonth = (_filterStart == null && _filterEnd == null) ||
-        ((_filterStart == null || !memory.date.isBefore(_filterStart!)) &&
-          (_filterEnd == null || !memory.date.isAfter(_filterEnd!)));
+      final bool matchesMonth =
+          (_filterStart == null && _filterEnd == null) ||
+          ((_filterStart == null || !memory.date.isBefore(_filterStart!)) &&
+              (_filterEnd == null || !memory.date.isAfter(_filterEnd!)));
 
       return matchesKeyword && matchesMonth;
     }).toList();
@@ -472,8 +471,8 @@ class _TimelineViewState extends State<TimelineView> {
                   children: <Widget>[
                     Expanded(
                       child: TextField(
-                          controller: _searchController,
-                          onChanged: _onSearchChanged,
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
                         decoration: InputDecoration(
                           hintText: 'Tìm theo tên/nội dung kỷ niệm',
                           prefixIcon: const Icon(Icons.search),
@@ -678,8 +677,8 @@ class _TimelineViewState extends State<TimelineView> {
           ),
           child: StatefulBuilder(
             builder: (BuildContext ctx2, StateSetter setModalState) {
-        String formatDate(DateTime? d) =>
-          d == null ? 'Chưa chọn' : DateFormat('dd/MM/yyyy').format(d);
+              String formatDate(DateTime? d) =>
+                  d == null ? 'Chưa chọn' : DateFormat('dd/MM/yyyy').format(d);
 
               Future<void> pickStart() async {
                 final DateTime initial = tempStart ?? DateTime.now();
@@ -690,7 +689,13 @@ class _TimelineViewState extends State<TimelineView> {
                   lastDate: DateTime(2100),
                 );
                 if (picked != null) {
-                  setModalState(() => tempStart = DateTime(picked.year, picked.month, picked.day));
+                  setModalState(
+                    () => tempStart = DateTime(
+                      picked.year,
+                      picked.month,
+                      picked.day,
+                    ),
+                  );
                 }
               }
 
@@ -703,7 +708,16 @@ class _TimelineViewState extends State<TimelineView> {
                   lastDate: DateTime(2100),
                 );
                 if (picked != null) {
-                  setModalState(() => tempEnd = DateTime(picked.year, picked.month, picked.day, 23, 59, 59));
+                  setModalState(
+                    () => tempEnd = DateTime(
+                      picked.year,
+                      picked.month,
+                      picked.day,
+                      23,
+                      59,
+                      59,
+                    ),
+                  );
                 }
               }
 
@@ -713,7 +727,10 @@ class _TimelineViewState extends State<TimelineView> {
                 children: <Widget>[
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text('Chọn khoảng thời gian', style: Theme.of(ctx2).textTheme.titleLarge),
+                    child: Text(
+                      'Chọn khoảng thời gian',
+                      style: Theme.of(ctx2).textTheme.titleLarge,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   ListTile(
