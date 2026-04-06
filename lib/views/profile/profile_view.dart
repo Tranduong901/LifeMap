@@ -31,7 +31,9 @@ class _ProfileViewState extends State<ProfileView> {
 
     try {
       final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
-      if (picked == null) return;
+      if (picked == null) {
+        return;
+      }
 
       setState(() => _isUploading = true);
       final String imageUrl = await CloudinaryService().uploadImageFile(
@@ -46,10 +48,11 @@ class _ProfileViewState extends State<ProfileView> {
         );
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Lỗi tải ảnh: $e')));
+      }
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -467,7 +470,9 @@ class _ProfileViewState extends State<ProfileView> {
                                 );
                               }),
                               onChanged: (int? v) {
-                                if (v == null) return;
+                                if (v == null) {
+                                  return;
+                                }
                                 setState(
                                   () => _selectedMonth = DateTime(
                                     _selectedMonth.year,
@@ -507,7 +512,9 @@ class _ProfileViewState extends State<ProfileView> {
                                 );
                               }),
                               onChanged: (int? v) {
-                                if (v == null) return;
+                                if (v == null) {
+                                  return;
+                                }
                                 setState(() {
                                   _selectedYear = v;
                                   _selectedMonth = DateTime(
