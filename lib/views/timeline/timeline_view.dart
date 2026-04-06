@@ -678,8 +678,8 @@ class _TimelineViewState extends State<TimelineView> {
           ),
           child: StatefulBuilder(
             builder: (BuildContext ctx2, StateSetter setModalState) {
-              String _formatDate(DateTime? d) =>
-                  d == null ? 'Chưa chọn' : DateFormat('dd/MM/yyyy').format(d);
+        String formatDate(DateTime? d) =>
+          d == null ? 'Chưa chọn' : DateFormat('dd/MM/yyyy').format(d);
 
               Future<void> pickStart() async {
                 final DateTime initial = tempStart ?? DateTime.now();
@@ -719,13 +719,13 @@ class _TimelineViewState extends State<TimelineView> {
                   ListTile(
                     leading: const Icon(Icons.calendar_month),
                     title: const Text('Ngày bắt đầu'),
-                    subtitle: Text(_formatDate(tempStart)),
+                    subtitle: Text(formatDate(tempStart)),
                     onTap: pickStart,
                   ),
                   ListTile(
                     leading: const Icon(Icons.calendar_month_outlined),
                     title: const Text('Ngày kết thúc'),
-                    subtitle: Text(_formatDate(tempEnd)),
+                    subtitle: Text(formatDate(tempEnd)),
                     onTap: pickEnd,
                   ),
                   const SizedBox(height: 12),
