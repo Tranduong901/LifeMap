@@ -283,6 +283,25 @@ class _AuthViewState extends State<AuthView> {
                             ),
                             child: Image.network(
                               'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                              loadingBuilder:
+                                  (
+                                    BuildContext context,
+                                    Widget child,
+                                    ImageChunkEvent? loadingProgress,
+                                  ) {
+                                    if (loadingProgress == null) {
+                                      return child;
+                                    }
+                                    return const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    );
+                                  },
                               errorBuilder: (context, error, stackTrace) =>
                                   const Icon(Icons.g_mobiledata),
                             ),

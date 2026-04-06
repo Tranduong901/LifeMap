@@ -30,6 +30,31 @@ class MemoryService {
   final FirebaseFirestore _firestore;
   final bool _enableConnectivityListener;
 
+  static const Set<String> _invalidImageValues = <String>{
+    'gggggg',
+    'null',
+    'undefined',
+  };
+
+  String _sanitizeImageValue(String? value) {
+    final String normalized = (value ?? '').trim();
+    if (normalized.isEmpty ||
+        _invalidImageValues.contains(normalized.toLowerCase())) {
+      return '';
+    }
+    return normalized;
+  }
+
+  List<String> _sanitizeImageList(List<String> values) {
+    return values
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .where(
+          (String item) => !_invalidImageValues.contains(item.toLowerCase()),
+        )
+        .toList();
+  }
+
   CollectionReference<Map<String, dynamic>> get _memoriesRef =>
       _firestore.collection('memories');
 
@@ -115,12 +140,18 @@ class MemoryService {
   }
 
   Map<String, dynamic> _buildCreateData(MemoryModel memory) {
+    final List<String> sanitizedImageUrls = _sanitizeImageList(
+      memory.imageUrls,
+    );
+    final String sanitizedPrimaryImage = _sanitizeImageValue(memory.imageUrl);
     return <String, dynamic>{
       'title': memory.title,
       'userId': memory.userId,
       'description': memory.description,
-      'imageUrl': memory.imageUrl,
-      'imageUrls': memory.imageUrls,
+      'imageUrl': sanitizedImageUrls.isNotEmpty
+          ? sanitizedImageUrls.first
+          : sanitizedPrimaryImage,
+      'imageUrls': sanitizedImageUrls,
       'topic': memory.topic,
       'lat': memory.lat,
       'lng': memory.lng,
@@ -133,12 +164,18 @@ class MemoryService {
   }
 
   Map<String, dynamic> _buildUpdateData(MemoryModel memory) {
+    final List<String> sanitizedImageUrls = _sanitizeImageList(
+      memory.imageUrls,
+    );
+    final String sanitizedPrimaryImage = _sanitizeImageValue(memory.imageUrl);
     return <String, dynamic>{
       'title': memory.title,
       'userId': memory.userId,
       'description': memory.description,
-      'imageUrl': memory.imageUrl,
-      'imageUrls': memory.imageUrls,
+      'imageUrl': sanitizedImageUrls.isNotEmpty
+          ? sanitizedImageUrls.first
+          : sanitizedPrimaryImage,
+      'imageUrls': sanitizedImageUrls,
       'topic': memory.topic,
       'lat': memory.lat,
       'lng': memory.lng,

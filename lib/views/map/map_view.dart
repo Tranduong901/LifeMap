@@ -1,6 +1,6 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' as geo;
@@ -46,9 +46,66 @@ class _MapViewState extends State<MapView> {
   @override
   void initState() {
     super.initState();
-    if (_hasMapboxToken) {
-      mb.MapboxOptions.setAccessToken(_mapboxAccessToken);
+    Future.microtask(_initializeMapAsync);
+  }
+
+  Future<void> _initializeMapAsync() async {
+    if (!_hasMapboxToken) {
+      _logDebug('MAPBOX_ACCESS_TOKEN trống, sử dụng OpenStreetMap.');
+      return;
     }
+    mb.MapboxOptions.setAccessToken(_mapboxAccessToken);
+  }
+
+  void _logDebug(String message) {
+    if (kDebugMode) {
+      debugPrint('[MapView] $message');
+    }
+  }
+
+  Widget _buildSafeNetworkImage(
+    String url, {
+    required double width,
+    required double height,
+    BoxFit fit = BoxFit.cover,
+  }) {
+    return Image.network(
+      url,
+      width: width,
+      height: height,
+      fit: fit,
+      loadingBuilder:
+          (
+            BuildContext context,
+            Widget child,
+            ImageChunkEvent? loadingProgress,
+          ) {
+            if (loadingProgress == null) {
+              return child;
+            }
+            return Container(
+              width: width,
+              height: height,
+              color: Colors.grey.shade200,
+              alignment: Alignment.center,
+              child: const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          },
+      errorBuilder:
+          (BuildContext context, Object error, StackTrace? stackTrace) {
+            return Container(
+              width: width,
+              height: height,
+              color: Colors.grey.shade200,
+              alignment: Alignment.center,
+              child: const Icon(Icons.broken_image, color: Colors.grey),
+            );
+          },
+    );
   }
 
   @override
@@ -264,23 +321,10 @@ class _MapViewState extends State<MapView> {
               if (memory.imageUrls.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
+                  child: _buildSafeNetworkImage(
                     memory.imageUrls.first,
                     width: double.infinity,
                     height: 180,
-                    fit: BoxFit.cover,
-                    errorBuilder:
-                        (
-                          BuildContext context,
-                          Object error,
-                          StackTrace? stackTrace,
-                        ) {
-                          return Container(
-                            height: 120,
-                            alignment: Alignment.center,
-                            child: const Text('Không tải được ảnh'),
-                          );
-                        },
                   ),
                 ),
               const SizedBox(height: 8),
@@ -378,8 +422,9 @@ class _MapViewState extends State<MapView> {
                       children: <Widget>[
                         TileLayer(
                           urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
                           userAgentPackageName: 'vn.edu.tlu.nhom7.lifemap',
+                          subdomains: const <String>['a', 'b', 'c', 'd'],
                         ),
                         MarkerLayer(
                           markers: memories.map((MemoryModel memory) {

@@ -121,6 +121,14 @@ class _ProfileViewState extends State<ProfileView> {
     return counts;
   }
 
+  String? _safePhotoUrl(String? value) {
+    final String normalized = value?.trim() ?? '';
+    if (normalized.isEmpty || normalized.toLowerCase() == 'gggggg') {
+      return null;
+    }
+    return normalized;
+  }
+
   Widget _buildCategoryPieFromCounts(Map<String, int> counts) {
     final int total = counts.values.fold<int>(0, (int a, int b) => a + b);
     if (total == 0) {
@@ -186,7 +194,7 @@ class _ProfileViewState extends State<ProfileView> {
     final User? user = _currentUser;
     final String displayName = user?.displayName?.trim() ?? '';
     final String initials = _getInitials(displayName);
-    final String? photoUrl = user?.photoURL;
+    final String? photoUrl = _safePhotoUrl(user?.photoURL);
 
     return Scaffold(
       appBar: AppBar(
@@ -273,21 +281,66 @@ class _ProfileViewState extends State<ProfileView> {
                         CircleAvatar(
                           radius: 42,
                           backgroundColor: cs.primary,
-                          backgroundImage:
-                              (photoUrl != null && photoUrl.trim().isNotEmpty)
-                              ? NetworkImage(photoUrl)
-                              : null,
-                          child:
-                              (photoUrl != null && photoUrl.trim().isNotEmpty)
-                              ? null
-                              : Text(
-                                  initials,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                          child: ClipOval(
+                            child: SizedBox(
+                              width: 84,
+                              height: 84,
+                              child: photoUrl == null
+                                  ? Center(
+                                      child: Text(
+                                        initials,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 30,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    )
+                                  : Image.network(
+                                      photoUrl,
+                                      width: 84,
+                                      height: 84,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder:
+                                          (
+                                            BuildContext context,
+                                            Widget child,
+                                            ImageChunkEvent? loadingProgress,
+                                          ) {
+                                            if (loadingProgress == null) {
+                                              return child;
+                                            }
+                                            return Container(
+                                              color: Colors.grey.shade200,
+                                              alignment: Alignment.center,
+                                              child: const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                      errorBuilder:
+                                          (
+                                            BuildContext context,
+                                            Object error,
+                                            StackTrace? stackTrace,
+                                          ) {
+                                            return Container(
+                                              color: Colors.grey.shade200,
+                                              alignment: Alignment.center,
+                                              child: const Icon(
+                                                Icons.broken_image,
+                                                color: Colors.grey,
+                                              ),
+                                            );
+                                          },
+                                    ),
+                            ),
+                          ),
                         ),
                         Positioned(
                           right: 0,

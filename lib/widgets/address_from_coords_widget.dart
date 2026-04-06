@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../services/location_service.dart';
 
 class AddressFromCoordsWidget extends StatefulWidget {
@@ -22,15 +23,19 @@ class _AddressFromCoordsWidgetState extends State<AddressFromCoordsWidget> {
   @override
   void initState() {
     super.initState();
-    _load();
+    Future.microtask(_load);
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final String addr = await LocationService.getAddressFromLatLng(
-      widget.lat,
-      widget.lng,
-    );
+    String addr = 'Không xác định địa chỉ';
+    try {
+      addr = await LocationService.getAddressFromLatLng(widget.lat, widget.lng);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AddressFromCoordsWidget] Lỗi resolve địa chỉ: $e');
+      }
+    }
     if (!mounted) {
       return;
     }

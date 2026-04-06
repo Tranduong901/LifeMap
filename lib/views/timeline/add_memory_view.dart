@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -69,7 +70,17 @@ class _AddMemoryViewState extends State<AddMemoryView> {
         _imageUrls = <String>[initial.imageUrl.trim()];
       }
     } else {
-      _detectCurrentLocation(showSuccessMessage: false);
+      Future.microtask(_initializeCreateModeAsync);
+    }
+  }
+
+  Future<void> _initializeCreateModeAsync() async {
+    await _detectCurrentLocation(showSuccessMessage: false);
+  }
+
+  void _logDebug(String message) {
+    if (kDebugMode) {
+      debugPrint('[AddMemoryView] $message');
     }
   }
 
@@ -142,8 +153,8 @@ class _AddMemoryViewState extends State<AddMemoryView> {
         if (mounted && _addressController.text.trim().isEmpty) {
           setState(() => _addressController.text = resolved);
         }
-      } catch (_) {
-        // ignore resolution errors silently
+      } catch (e) {
+        _logDebug('Reverse geocoding thất bại: $e');
       }
 
       if (showSuccessMessage) {
@@ -546,6 +557,46 @@ class _AddMemoryViewState extends State<AddMemoryView> {
                                 height: 190,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
+                                loadingBuilder:
+                                    (
+                                      BuildContext context,
+                                      Widget child,
+                                      ImageChunkEvent? loadingProgress,
+                                    ) {
+                                      if (loadingProgress == null) {
+                                        return child;
+                                      }
+                                      return Container(
+                                        height: 190,
+                                        width: double.infinity,
+                                        color: Colors.grey.shade200,
+                                        alignment: Alignment.center,
+                                        child: const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                errorBuilder:
+                                    (
+                                      BuildContext context,
+                                      Object error,
+                                      StackTrace? stackTrace,
+                                    ) {
+                                      return Container(
+                                        height: 190,
+                                        width: double.infinity,
+                                        color: Colors.grey.shade200,
+                                        alignment: Alignment.center,
+                                        child: const Icon(
+                                          Icons.broken_image,
+                                          color: Colors.grey,
+                                        ),
+                                      );
+                                    },
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -567,6 +618,48 @@ class _AddMemoryViewState extends State<AddMemoryView> {
                                           width: 66,
                                           height: 66,
                                           fit: BoxFit.cover,
+                                          loadingBuilder:
+                                              (
+                                                BuildContext context,
+                                                Widget child,
+                                                ImageChunkEvent?
+                                                loadingProgress,
+                                              ) {
+                                                if (loadingProgress == null) {
+                                                  return child;
+                                                }
+                                                return Container(
+                                                  width: 66,
+                                                  height: 66,
+                                                  color: Colors.grey.shade200,
+                                                  alignment: Alignment.center,
+                                                  child: const SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                        ),
+                                                  ),
+                                                );
+                                              },
+                                          errorBuilder:
+                                              (
+                                                BuildContext context,
+                                                Object error,
+                                                StackTrace? stackTrace,
+                                              ) {
+                                                return Container(
+                                                  width: 66,
+                                                  height: 66,
+                                                  color: Colors.grey.shade200,
+                                                  alignment: Alignment.center,
+                                                  child: const Icon(
+                                                    Icons.broken_image,
+                                                    color: Colors.grey,
+                                                  ),
+                                                );
+                                              },
                                         ),
                                       ),
                                       Positioned(

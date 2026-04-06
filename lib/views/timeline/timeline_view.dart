@@ -225,13 +225,40 @@ class _TimelineViewState extends State<TimelineView> {
                               width: 92,
                               height: 92,
                               fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (
+                                    BuildContext c,
+                                    Widget child,
+                                    ImageChunkEvent? loadingProgress,
+                                  ) {
+                                    if (loadingProgress == null) {
+                                      return child;
+                                    }
+                                    return Container(
+                                      width: 92,
+                                      height: 92,
+                                      color: Colors.grey.shade200,
+                                      alignment: Alignment.center,
+                                      child: const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    );
+                                  },
                               errorBuilder:
                                   (BuildContext c, Object e, StackTrace? st) =>
                                       Container(
                                         width: 92,
                                         height: 92,
-                                        color: Colors.indigo.withAlpha(20),
-                                        child: const Icon(Icons.photo),
+                                        color: Colors.grey.shade200,
+                                        alignment: Alignment.center,
+                                        child: const Icon(
+                                          Icons.broken_image,
+                                          color: Colors.grey,
+                                        ),
                                       ),
                             ),
                             Positioned(

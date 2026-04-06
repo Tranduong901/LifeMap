@@ -94,6 +94,27 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                           photos[index],
                           width: double.infinity,
                           fit: BoxFit.cover,
+                          loadingBuilder:
+                              (
+                                BuildContext context,
+                                Widget child,
+                                ImageChunkEvent? loadingProgress,
+                              ) {
+                                if (loadingProgress == null) {
+                                  return child;
+                                }
+                                return Container(
+                                  alignment: Alignment.center,
+                                  color: Colors.grey.shade200,
+                                  child: const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                );
+                              },
                           errorBuilder:
                               (
                                 BuildContext context,
@@ -102,9 +123,10 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                               ) {
                                 return Container(
                                   alignment: Alignment.center,
-                                  color: Colors.indigo.withValues(alpha: 0.1),
+                                  color: Colors.grey.shade200,
                                   child: const Icon(
-                                    Icons.broken_image_outlined,
+                                    Icons.broken_image,
+                                    color: Colors.grey,
                                     size: 52,
                                   ),
                                 );

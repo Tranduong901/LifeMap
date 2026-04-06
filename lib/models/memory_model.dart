@@ -27,6 +27,34 @@ class MemoryModel {
   final DateTime date;
   final String address;
 
+  static const Set<String> _invalidImageValues = <String>{
+    'gggggg',
+    'null',
+    'undefined',
+  };
+
+  static String _sanitizeRemoteValue(Object? value) {
+    final String normalized = (value as String? ?? '').trim();
+    if (normalized.isEmpty) {
+      return '';
+    }
+    if (_invalidImageValues.contains(normalized.toLowerCase())) {
+      return '';
+    }
+    return normalized;
+  }
+
+  static List<String> _sanitizeRemoteList(List<dynamic>? values) {
+    return (values ?? <dynamic>[])
+        .whereType<String>()
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .where(
+          (String item) => !_invalidImageValues.contains(item.toLowerCase()),
+        )
+        .toList();
+  }
+
   factory MemoryModel.fromMap(Map<String, dynamic> data, String documentId) {
     final dynamic rawDate = data['date'];
     final GeoPoint? location = data['location'] as GeoPoint?;
@@ -44,15 +72,11 @@ class MemoryModel {
       parsedDate = DateTime.parse(rawDate.toString());
     }
 
-    final List<String> parsedImageUrls =
-        ((data['imageUrls'] as List<dynamic>?)
-                    ?.whereType<String>()
-                    .where((String item) => item.trim().isNotEmpty)
-                    .toList() ??
-                <String>[])
-            .toList();
+    final List<String> parsedImageUrls = _sanitizeRemoteList(
+      data['imageUrls'] as List<dynamic>?,
+    );
 
-    final String fallbackImageUrl = data['imageUrl'] as String? ?? '';
+    final String fallbackImageUrl = _sanitizeRemoteValue(data['imageUrl']);
     if (parsedImageUrls.isEmpty && fallbackImageUrl.trim().isNotEmpty) {
       parsedImageUrls.add(fallbackImageUrl);
     }
@@ -85,12 +109,18 @@ class MemoryModel {
   }
 
   Map<String, dynamic> toMap() {
+    final List<String> sanitizedImageUrls = _sanitizeRemoteList(
+      imageUrls.cast<dynamic>(),
+    );
+    final String sanitizedImageUrl = _sanitizeRemoteValue(imageUrl);
     return <String, dynamic>{
       'title': title,
       'userId': userId,
       'description': description,
-      'imageUrl': imageUrl,
-      'imageUrls': imageUrls,
+      'imageUrl': sanitizedImageUrls.isNotEmpty
+          ? sanitizedImageUrls.first
+          : sanitizedImageUrl,
+      'imageUrls': sanitizedImageUrls,
       'topic': topic,
       'lat': lat,
       'lng': lng,
@@ -147,11 +177,10 @@ class MemoryModel {
   }
 
   factory MemoryModel.fromQueueMap(Map<String, dynamic> data) {
-    final List<String> urls =
-        ((data['imageUrls'] as List<dynamic>?)?.whereType<String>().toList() ??
-                <String>[])
-            .toList();
-    final String primary = (data['imageUrl'] as String? ?? '').trim();
+    final List<String> urls = _sanitizeRemoteList(
+      data['imageUrls'] as List<dynamic>?,
+    );
+    final String primary = _sanitizeRemoteValue(data['imageUrl']);
     if (urls.isEmpty && primary.isNotEmpty) {
       urls.add(primary);
     }

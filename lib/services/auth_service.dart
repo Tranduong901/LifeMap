@@ -7,6 +7,17 @@ import 'package:google_sign_in/google_sign_in.dart';
 // Do not pass a web client ID into the native GoogleSignIn instance.
 final GoogleSignIn _sharedGoogleSignIn = GoogleSignIn();
 
+String _sanitizeRemoteUrl(String? value) {
+  final String normalized = (value ?? '').trim();
+  if (normalized.isEmpty) {
+    return '';
+  }
+  if (normalized.toLowerCase() == 'gggggg') {
+    return '';
+  }
+  return normalized;
+}
+
 class AuthService {
   AuthService({
     FirebaseAuth? firebaseAuth,
@@ -208,11 +219,12 @@ class AuthService {
     }
 
     try {
+      final String sanitizedPhotoUrl = _sanitizeRemoteUrl(user.photoURL);
       await _usersRef.doc(user.uid).set(<String, dynamic>{
         'uid': user.uid,
         'email': user.email ?? '',
         'displayName': user.displayName ?? '',
-        'photoUrl': user.photoURL ?? '',
+        'photoUrl': sanitizedPhotoUrl,
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } on FirebaseException catch (e) {

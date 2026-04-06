@@ -1,4 +1,5 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -18,7 +19,7 @@ class _CameraCaptureViewState extends State<CameraCaptureView> {
   @override
   void initState() {
     super.initState();
-    _setupCamera();
+    Future.microtask(_setupCamera);
   }
 
   Future<void> _setupCamera() async {
@@ -59,6 +60,9 @@ class _CameraCaptureViewState extends State<CameraCaptureView> {
     } catch (e) {
       if (!mounted) {
         return;
+      }
+      if (kDebugMode) {
+        debugPrint('[CameraCaptureView] Khởi tạo camera thất bại: $e');
       }
       setState(() {
         _errorMessage = 'Không thể khởi tạo camera: $e';
