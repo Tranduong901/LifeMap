@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 
 import '../../models/memory_model.dart';
 import '../../models/memory_topic.dart';
@@ -19,7 +20,9 @@ class TimelineView extends StatefulWidget {
 class _TimelineViewState extends State<TimelineView> {
   final MemoryService _memoryService = MemoryService();
   final TextEditingController _searchController = TextEditingController();
-  DateTime? _selectedMonth;
+  Timer? _searchDebounce;
+  DateTime? _filterStart;
+  DateTime? _filterEnd;
   TimelineGroupMode _groupMode = TimelineGroupMode.month;
   final Set<String> _expandedGroups = <String>{};
   String? _highlightedMemoryId;
@@ -29,6 +32,7 @@ class _TimelineViewState extends State<TimelineView> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -103,18 +107,40 @@ class _TimelineViewState extends State<TimelineView> {
   }
 
   List<MemoryModel> _applyFilters(List<MemoryModel> memories) {
-    final kw = _searchController.text.trim().toLowerCase();
+    final raw = _searchController.text.trim().toLowerCase();
+    final List<String> tokens = raw.isEmpty
+        ? <String>[]
+        : raw.split(RegExp(r"\s+"))
+            .where((String t) => t.isNotEmpty)
+            .toList();
+
     return memories.where((MemoryModel memory) {
-      final bool matchesKeyword =
-          kw.isEmpty ||
-          memory.title.toLowerCase().contains(kw) ||
-          memory.description.toLowerCase().contains(kw);
-      final bool matchesMonth =
-          _selectedMonth == null ||
-          (memory.date.year == _selectedMonth!.year &&
-              memory.date.month == _selectedMonth!.month);
+      // keyword matching across multiple fields (title, description, address, emotion_tag)
+      final haystack = <String>[
+        memory.title,
+        memory.description,
+  memory.address,
+  '',
+      ].map((String s) => s.toLowerCase()).join(' ');
+
+      final bool matchesKeyword = tokens.isEmpty
+          ? true
+          : tokens.every((String token) => haystack.contains(token));
+
+      final bool matchesMonth = (_filterStart == null && _filterEnd == null) ||
+        ((_filterStart == null || !memory.date.isBefore(_filterStart!)) &&
+          (_filterEnd == null || !memory.date.isAfter(_filterEnd!)));
+
       return matchesKeyword && matchesMonth;
     }).toList();
+  }
+
+  void _onSearchChanged(String value) {
+    // debounce user input to avoid excessive rebuilds while typing
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() {});
+    });
   }
 
   Widget _buildMemoryItem(MemoryModel memory) {
@@ -446,8 +472,8 @@ class _TimelineViewState extends State<TimelineView> {
                   children: <Widget>[
                     Expanded(
                       child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
+                          controller: _searchController,
+                          onChanged: _onSearchChanged,
                         decoration: InputDecoration(
                           hintText: 'Tìm theo tên/nội dung kỷ niệm',
                           prefixIcon: const Icon(Icons.search),
@@ -459,28 +485,12 @@ class _TimelineViewState extends State<TimelineView> {
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
-                      onPressed: () async {
-                        final DateTime? month = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedMonth ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                          initialDatePickerMode: DatePickerMode.year,
-                        );
-                        if (month != null) {
-                          setState(
-                            () => _selectedMonth = DateTime(
-                              month.year,
-                              month.month,
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: () => _showDateRangeSelector(context),
                       icon: const Icon(Icons.filter_alt_outlined),
                       label: Text(
-                        _selectedMonth == null
+                        (_filterStart == null || _filterEnd == null)
                             ? 'Lọc thời gian'
-                            : DateFormat('MM/yyyy').format(_selectedMonth!),
+                            : '${DateFormat('dd/MM/yyyy').format(_filterStart!)} - ${DateFormat('dd/MM/yyyy').format(_filterEnd!)}',
                       ),
                     ),
                   ],
@@ -514,10 +524,21 @@ class _TimelineViewState extends State<TimelineView> {
                 ),
               ),
 
-              if (_selectedMonth != null)
-                TextButton(
-                  onPressed: () => setState(() => _selectedMonth = null),
-                  child: const Text('Xóa bộ lọc thời gian'),
+              if (_filterStart != null || _filterEnd != null)
+                Center(
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() {
+                      _filterStart = null;
+                      _filterEnd = null;
+                    }),
+                    icon: const Icon(Icons.clear),
+                    label: const Text('Xóa bộ lọc'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
 
               if (filtered.isEmpty)
@@ -634,6 +655,115 @@ class _TimelineViewState extends State<TimelineView> {
           );
         },
       ),
+    );
+  }
+
+  Future<void> _showDateRangeSelector(BuildContext context) async {
+    DateTime? tempStart = _filterStart;
+    DateTime? tempEnd = _filterEnd;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: StatefulBuilder(
+            builder: (BuildContext ctx2, StateSetter setModalState) {
+              String _formatDate(DateTime? d) =>
+                  d == null ? 'Chưa chọn' : DateFormat('dd/MM/yyyy').format(d);
+
+              Future<void> pickStart() async {
+                final DateTime initial = tempStart ?? DateTime.now();
+                final DateTime? picked = await showDatePicker(
+                  context: ctx2,
+                  initialDate: initial,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) {
+                  setModalState(() => tempStart = DateTime(picked.year, picked.month, picked.day));
+                }
+              }
+
+              Future<void> pickEnd() async {
+                final DateTime initial = tempEnd ?? DateTime.now();
+                final DateTime? picked = await showDatePicker(
+                  context: ctx2,
+                  initialDate: initial,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) {
+                  setModalState(() => tempEnd = DateTime(picked.year, picked.month, picked.day, 23, 59, 59));
+                }
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text('Chọn khoảng thời gian', style: Theme.of(ctx2).textTheme.titleLarge),
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: const Icon(Icons.calendar_month),
+                    title: const Text('Ngày bắt đầu'),
+                    subtitle: Text(_formatDate(tempStart)),
+                    onTap: pickStart,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.calendar_month_outlined),
+                    title: const Text('Ngày kết thúc'),
+                    subtitle: Text(_formatDate(tempEnd)),
+                    onTap: pickEnd,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _filterStart = null;
+                              _filterEnd = null;
+                            });
+                            Navigator.of(ctx2).pop();
+                          },
+                          child: const Text('Xóa'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _filterStart = tempStart;
+                              _filterEnd = tempEnd;
+                            });
+                            Navigator.of(ctx2).pop();
+                          },
+                          child: const Text('Áp dụng'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
