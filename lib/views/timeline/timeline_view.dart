@@ -25,7 +25,7 @@ class _TimelineViewState extends State<TimelineView> {
   DateTime? _filterEnd;
   TimelineGroupMode _groupMode = TimelineGroupMode.month;
   final Set<String> _expandedGroups = <String>{};
-  String? _highlightedMemoryId;
+  // Removed highlighted id: no longer used due to gesture rebuild issues.
   // Toggle this for quick debugging: render a simplified list to avoid complex layout
   // Set to false to show the redesigned timeline UI.
   final bool _debugSimpleTimeline = false;

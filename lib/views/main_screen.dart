@@ -25,7 +25,7 @@ class MainScreen extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: NavigationBar(
-            backgroundColor: Colors.white.withOpacity(0.96),
+            backgroundColor: Colors.white.withValues(alpha: 0.96),
             indicatorColor: const Color(0xFFFFE7CF),
             selectedIndex: navigationProvider.selectedIndex,
             onDestinationSelected: navigationProvider.updateSelectedIndex,

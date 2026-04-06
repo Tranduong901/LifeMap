@@ -334,7 +334,10 @@ class _AddMemoryViewState extends State<AddMemoryView> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: <Color>[Colors.indigo.withOpacity(0.07), Colors.white],
+            colors: <Color>[
+              Colors.indigo.withValues(alpha: 0.07),
+              Colors.white,
+            ],
           ),
         ),
         child: Form(
@@ -603,7 +606,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
                           height: 130,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.indigo.withOpacity(0.08),
+                            color: Colors.indigo.withValues(alpha: 0.08),
                           ),
                           alignment: Alignment.center,
                           child: const Text('Chưa có ảnh'),

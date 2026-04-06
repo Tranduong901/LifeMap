@@ -102,7 +102,7 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                               ) {
                                 return Container(
                                   alignment: Alignment.center,
-                                  color: Colors.indigo.withOpacity(0.1),
+                                  color: Colors.indigo.withValues(alpha: 0.1),
                                   child: const Icon(
                                     Icons.broken_image_outlined,
                                     size: 52,
@@ -123,7 +123,7 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -143,8 +143,8 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: <Color>[
-                            Colors.black.withOpacity(0),
-                            Colors.black.withOpacity(0.62),
+                            Colors.black.withValues(alpha: 0),
+                            Colors.black.withValues(alpha: 0.62),
                           ],
                         ),
                       ),

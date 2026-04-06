@@ -141,11 +141,13 @@ class _AuthViewState extends State<AuthView> {
                     key: ValueKey<bool>(_isLogin),
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(28),
                       boxShadow: <BoxShadow>[
                         BoxShadow(
-                          color: const Color(0xFF1F2937).withOpacity(0.14),
+                          color: const Color(
+                            0xFF1F2937,
+                          ).withValues(alpha: 0.14),
                           blurRadius: 30,
                           offset: const Offset(0, 16),
                         ),
@@ -194,7 +196,7 @@ class _AuthViewState extends State<AuthView> {
                                     : 'Chỉ mất vài giây để bắt đầu lưu lại những nơi bạn đã đi qua.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                 ),
                               ),
                             ],
@@ -257,7 +259,7 @@ class _AuthViewState extends State<AuthView> {
                             elevation: 8,
                             shadowColor: const Color(
                               0xFF0F766E,
-                            ).withOpacity(0.32),
+                            ).withValues(alpha: 0.32),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -292,12 +294,14 @@ class _AuthViewState extends State<AuthView> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             side: BorderSide(
-                              color: const Color(0xFF0EA5E9).withOpacity(0.4),
+                              color: const Color(
+                                0xFF0EA5E9,
+                              ).withValues(alpha: 0.4),
                             ),
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF111827),
                             elevation: 4,
-                            shadowColor: Colors.black.withOpacity(0.12),
+                            shadowColor: Colors.black.withValues(alpha: 0.12),
                           ),
                         ),
                         const SizedBox(height: 14),

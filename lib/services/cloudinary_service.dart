@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:developer';
 
 import 'package:cloudinary_public/cloudinary_public.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -10,13 +11,34 @@ import 'package:path_provider/path_provider.dart';
 ///
 /// NOTE: Replace [cloudName] and [uploadPreset] with your Cloudinary values.
 class CloudinaryService {
-  // TODO: move these to secure config / environment variables
-  static const String cloudName = 'dz71nvyby';
-  static const String uploadPreset = 'lifemap';
+  // Cloudinary config: prefer compile-time defines (`--dart-define`),
+  // otherwise read runtime environment variables (desktop),
+  // fallback to the existing defaults for development.
+  static String get _cloudName {
+    const String fromDefine = String.fromEnvironment(
+      'CLOUDINARY_CLOUD_NAME',
+      defaultValue: '',
+    );
+    if (fromDefine.isNotEmpty) return fromDefine;
+    // Platform.environment is unsupported on web; avoid calling it there.
+    if (kIsWeb) return 'dz71nvyby';
+    return Platform.environment['CLOUDINARY_CLOUD_NAME'] ?? 'dz71nvyby';
+  }
+
+  static String get _uploadPreset {
+    const String fromDefine = String.fromEnvironment(
+      'CLOUDINARY_UPLOAD_PRESET',
+      defaultValue: '',
+    );
+    if (fromDefine.isNotEmpty) return fromDefine;
+    // Platform.environment is unsupported on web; avoid calling it there.
+    if (kIsWeb) return 'lifemap';
+    return Platform.environment['CLOUDINARY_UPLOAD_PRESET'] ?? 'lifemap';
+  }
 
   final CloudinaryPublic _cloudinary = CloudinaryPublic(
-    cloudName,
-    uploadPreset,
+    _cloudName,
+    _uploadPreset,
     cache: false,
   );
 
