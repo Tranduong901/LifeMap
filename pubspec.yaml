@@ -41,6 +41,7 @@ dependencies:
   google_sign_in: ^6.3.0
   mapbox_maps_flutter: ^2.8.0
   flutter_map: ^7.0.2
+  flutter_map_cancellable_tile_provider: ^3.0.2
   latlong2: ^0.9.1
   geolocator: ^13.0.2
   camera: ^0.11.1

@@ -10,6 +10,7 @@ import '../../models/memory_topic.dart';
 import '../../services/auth_service.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/memory_service.dart';
+import '../social/friends_view.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -197,51 +198,29 @@ class _ProfileViewState extends State<ProfileView> {
     final String? photoUrl = _safePhotoUrl(user?.photoURL);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
+        toolbarHeight: 60,
         elevation: 0,
-        backgroundColor: Colors.transparent,
-        // Gradient flexibleSpace to match the provided header style
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: <Color>[
-                Color(0xFF3B82F6), // blue
-                Color(0xFF7C3AED), // purple
-              ],
-            ),
-          ),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF9575CD),
+        centerTitle: true,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: Color(0x2278909C)),
         ),
-        // Custom title row with a small calendar icon and bold white text
-        title: Row(
-          children: <Widget>[
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Center(
-                child: Icon(Icons.person, color: Colors.white, size: 18),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Cá nhân',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+        title: Text(
+          'Cá nhân',
+          style: const TextStyle(
+            color: Color(0xFF9575CD),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: <Widget>[
           IconButton(
             tooltip: 'Đăng xuất',
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: const Icon(Icons.logout, color: Color(0xFF9575CD)),
             onPressed: () async {
               try {
                 await AuthService().signOut();
@@ -258,399 +237,465 @@ class _ProfileViewState extends State<ProfileView> {
       ),
       body: StreamBuilder<List<MemoryModel>>(
         stream: _memoryService.getMemoriesStream(),
-        builder:
-            (BuildContext context, AsyncSnapshot<List<MemoryModel>> snapshot) {
-              final List<MemoryModel> memories =
-                  snapshot.data ?? <MemoryModel>[];
-              final List<BarChartGroupData> bars = _buildMonthlyBars(
-                memories,
-                cs.primary,
-              );
-              final double bottomSafe =
-                  MediaQuery.of(context).padding.bottom +
-                  kBottomNavigationBarHeight +
-                  24;
+        builder: (BuildContext context, AsyncSnapshot<List<MemoryModel>> snapshot) {
+          final List<MemoryModel> memories = snapshot.data ?? <MemoryModel>[];
+          final List<BarChartGroupData> bars = _buildMonthlyBars(
+            memories,
+            cs.primary,
+          );
+          final double bottomSafe =
+              MediaQuery.of(context).padding.bottom +
+              kBottomNavigationBarHeight +
+              24;
 
-              return ListView(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, bottomSafe),
-                children: <Widget>[
-                  Center(
-                    child: Stack(
-                      alignment: Alignment.bottomRight,
-                      children: <Widget>[
-                        CircleAvatar(
-                          radius: 42,
-                          backgroundColor: cs.primary,
-                          child: ClipOval(
-                            child: SizedBox(
-                              width: 84,
-                              height: 84,
-                              child: photoUrl == null
-                                  ? Center(
-                                      child: Text(
-                                        initials,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 30,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    )
-                                  : Image.network(
-                                      photoUrl,
-                                      width: 84,
-                                      height: 84,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder:
-                                          (
-                                            BuildContext context,
-                                            Widget child,
-                                            ImageChunkEvent? loadingProgress,
-                                          ) {
-                                            if (loadingProgress == null) {
-                                              return child;
-                                            }
-                                            return Container(
-                                              color: Colors.grey.shade200,
-                                              alignment: Alignment.center,
-                                              child: const SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              ),
-                                            );
-                                          },
-                                      errorBuilder:
-                                          (
-                                            BuildContext context,
-                                            Object error,
-                                            StackTrace? stackTrace,
-                                          ) {
-                                            return Container(
-                                              color: Colors.grey.shade200,
-                                              alignment: Alignment.center,
-                                              child: const Icon(
-                                                Icons.broken_image,
-                                                color: Colors.grey,
-                                              ),
-                                            );
-                                          },
-                                    ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: InkWell(
-                            onTap: _isUploading ? null : _pickAndUploadAvatar,
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: <BoxShadow>[
-                                  BoxShadow(
-                                    color: Color.fromRGBO(0, 0, 0, 0.2),
-                                    blurRadius: 4,
-                                  ),
-                                ],
-                              ),
-                              padding: const EdgeInsets.all(6),
-                              child: _isUploading
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.edit,
-                                      size: 20,
-                                      color: cs.primary,
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+          return ListView(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomSafe),
+            children: <Widget>[
+              Center(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    displayName.isNotEmpty ? displayName : 'Người dùng LifeMap',
-                    textAlign: TextAlign.center,
-                    style:
-                        tt.titleMedium?.copyWith(fontWeight: FontWeight.w600) ??
-                        const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    user?.email ?? 'Chưa có email',
-                    textAlign: TextAlign.center,
-                    style:
-                        tt.bodySmall?.copyWith(
-                          color: Color.fromRGBO(
-                            ((cs.onSurface.r * 255.0).round().clamp(
-                              0,
-                              255,
-                            )).toInt(),
-                            ((cs.onSurface.g * 255.0).round().clamp(
-                              0,
-                              255,
-                            )).toInt(),
-                            ((cs.onSurface.b * 255.0).round().clamp(
-                              0,
-                              255,
-                            )).toInt(),
-                            0.7,
-                          ),
-                        ) ??
-                        TextStyle(color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 20),
-
-                  Card(
-                    color: cs.surfaceContainerHighest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    children: <Widget>[
+                      Stack(
+                        alignment: Alignment.bottomRight,
                         children: <Widget>[
-                          Text(
-                            'Thống kê kỷ niệm theo tháng',
-                            style:
-                                tt.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ) ??
-                                const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 220,
-                            child: BarChart(
-                              BarChartData(
-                                maxY:
-                                    (bars
-                                                .map(
-                                                  (BarChartGroupData group) =>
-                                                      group.barRods.first.toY,
-                                                )
-                                                .fold<double>(
-                                                  0,
-                                                  (double a, double b) =>
-                                                      a > b ? a : b,
-                                                ) +
-                                            1)
-                                        .clamp(4, 100),
-                                barGroups: bars,
-                                gridData: const FlGridData(show: true),
-                                borderData: FlBorderData(show: false),
-                                titlesData: FlTitlesData(
-                                  topTitles: const AxisTitles(
-                                    sideTitles: SideTitles(showTitles: false),
-                                  ),
-                                  rightTitles: const AxisTitles(
-                                    sideTitles: SideTitles(showTitles: false),
-                                  ),
-                                  leftTitles: const AxisTitles(
-                                    sideTitles: SideTitles(
-                                      showTitles: true,
-                                      reservedSize: 28,
-                                    ),
-                                  ),
-                                  bottomTitles: AxisTitles(
-                                    sideTitles: SideTitles(
-                                      showTitles: true,
-                                      reservedSize: 26,
-                                      getTitlesWidget:
-                                          (double value, TitleMeta meta) {
-                                            final int month = value.toInt() + 1;
-                                            return Text(
-                                              month.toString(),
-                                              style:
-                                                  tt.bodySmall ??
-                                                  const TextStyle(fontSize: 10),
-                                            );
-                                          },
-                                    ),
-                                  ),
-                                ),
+                          CircleAvatar(
+                            radius: 42,
+                            backgroundColor: cs.primary,
+                            child: ClipOval(
+                              child: SizedBox(
+                                width: 84,
+                                height: 84,
+                                child: photoUrl == null
+                                    ? Center(
+                                        child: Text(
+                                          initials,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 30,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      )
+                                    : Image.network(
+                                        photoUrl,
+                                        width: 84,
+                                        height: 84,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder:
+                                            (
+                                              BuildContext context,
+                                              Widget child,
+                                              ImageChunkEvent? loadingProgress,
+                                            ) {
+                                              if (loadingProgress == null) {
+                                                return child;
+                                              }
+                                              return Container(
+                                                color: Colors.grey.shade200,
+                                                alignment: Alignment.center,
+                                                child: const SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                        errorBuilder:
+                                            (
+                                              BuildContext context,
+                                              Object error,
+                                              StackTrace? stackTrace,
+                                            ) {
+                                              return Container(
+                                                color: Colors.grey.shade200,
+                                                alignment: Alignment.center,
+                                                child: const Icon(
+                                                  Icons.broken_image,
+                                                  color: Colors.grey,
+                                                ),
+                                              );
+                                            },
+                                      ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tổng kỷ niệm: ${memories.length}',
-                            style: tt.bodyMedium,
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: InkWell(
+                              onTap: _isUploading ? null : _pickAndUploadAvatar,
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: <BoxShadow>[
+                                    BoxShadow(
+                                      color: Color.fromRGBO(0, 0, 0, 0.2),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.all(6),
+                                child: _isUploading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.edit,
+                                        size: 20,
+                                        color: cs.primary,
+                                      ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 14),
+                      Text(
+                        displayName.isNotEmpty
+                            ? displayName
+                            : 'Người dùng LifeMap',
+                        textAlign: TextAlign.center,
+                        style:
+                            tt.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ) ??
+                            const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        user?.email ?? 'Chưa có email',
+                        textAlign: TextAlign.center,
+                        style:
+                            tt.bodySmall?.copyWith(
+                              color: Color.fromRGBO(
+                                ((cs.onSurface.r * 255.0).round().clamp(
+                                  0,
+                                  255,
+                                )).toInt(),
+                                ((cs.onSurface.g * 255.0).round().clamp(
+                                  0,
+                                  255,
+                                )).toInt(),
+                                ((cs.onSurface.b * 255.0).round().clamp(
+                                  0,
+                                  255,
+                                )).toInt(),
+                                0.7,
+                              ),
+                            ) ??
+                            TextStyle(color: Colors.grey.shade700),
+                      ),
+                    ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
 
-                  const SizedBox(height: 16),
-
-                  // Controls: month & year selectors for the pie charts
-                  Row(
+              Card(
+                elevation: 0.8,
+                shadowColor: const Color(0x2278909C),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
                     children: <Widget>[
                       Expanded(
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Tháng',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              isExpanded: true,
-                              value: _selectedMonth.month,
-                              items: List<DropdownMenuItem<int>>.generate(12, (
-                                int i,
-                              ) {
-                                final int m = i + 1;
-                                return DropdownMenuItem<int>(
-                                  value: m,
-                                  child: Text('Tháng $m'),
-                                );
-                              }),
-                              onChanged: (int? v) {
-                                if (v == null) {
-                                  return;
-                                }
-                                setState(
-                                  () => _selectedMonth = DateTime(
-                                    _selectedMonth.year,
-                                    v,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (BuildContext context) =>
+                                    const FriendsView(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.person_search),
+                          label: const Text('Tìm bạn bè'),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 140,
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Năm',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              isExpanded: true,
-                              value: _selectedYear,
-                              items: List<DropdownMenuItem<int>>.generate(6, (
-                                int i,
-                              ) {
-                                final int year = DateTime.now().year - i;
-                                return DropdownMenuItem<int>(
-                                  value: year,
-                                  child: Text(year.toString()),
-                                );
-                              }),
-                              onChanged: (int? v) {
-                                if (v == null) {
-                                  return;
-                                }
-                                setState(() {
-                                  _selectedYear = v;
-                                  _selectedMonth = DateTime(
-                                    v,
-                                    _selectedMonth.month,
-                                  );
-                                });
-                              },
-                            ),
-                          ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (BuildContext context) =>
+                                    const FriendsView(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.group),
+                          label: const Text('Danh sách bạn'),
                         ),
                       ),
                     ],
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-                  Card(
-                    color: cs.surfaceContainerHighest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Phân bố kỷ niệm theo chuyên mục (Tháng đã chọn)',
-                            style:
-                                tt.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ) ??
-                                const TextStyle(fontWeight: FontWeight.w700),
+              Card(
+                color: Colors.white,
+                elevation: 0.8,
+                shadowColor: const Color(0x2278909C),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Thống kê kỷ niệm theo tháng',
+                        style:
+                            tt.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ) ??
+                            const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 220,
+                        child: BarChart(
+                          BarChartData(
+                            maxY:
+                                (bars
+                                            .map(
+                                              (BarChartGroupData group) =>
+                                                  group.barRods.first.toY,
+                                            )
+                                            .fold<double>(
+                                              0,
+                                              (double a, double b) =>
+                                                  a > b ? a : b,
+                                            ) +
+                                        1)
+                                    .clamp(4, 100),
+                            barGroups: bars,
+                            gridData: const FlGridData(show: true),
+                            borderData: FlBorderData(show: false),
+                            titlesData: FlTitlesData(
+                              topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              leftTitles: const AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 28,
+                                ),
+                              ),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 26,
+                                  getTitlesWidget:
+                                      (double value, TitleMeta meta) {
+                                        final int month = value.toInt() + 1;
+                                        return Text(
+                                          month.toString(),
+                                          style:
+                                              tt.bodySmall ??
+                                              const TextStyle(fontSize: 10),
+                                        );
+                                      },
+                                ),
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          _buildCategoryPieFromCounts(
-                            _countsForMonth(memories, _selectedMonth),
-                          ),
-                        ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tổng kỷ niệm: ${memories.length}',
+                        style: tt.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Controls: month & year selectors for the pie charts
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Tháng',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          isExpanded: true,
+                          value: _selectedMonth.month,
+                          items: List<DropdownMenuItem<int>>.generate(12, (
+                            int i,
+                          ) {
+                            final int m = i + 1;
+                            return DropdownMenuItem<int>(
+                              value: m,
+                              child: Text('Tháng $m'),
+                            );
+                          }),
+                          onChanged: (int? v) {
+                            if (v == null) {
+                              return;
+                            }
+                            setState(
+                              () => _selectedMonth = DateTime(
+                                _selectedMonth.year,
+                                v,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  Card(
-                    color: cs.surfaceContainerHighest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Phân bố kỷ niệm theo chuyên mục (Năm đã chọn)',
-                            style:
-                                tt.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ) ??
-                                const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildCategoryPieFromCounts(
-                            _countsForYear(memories, _selectedYear),
-                          ),
-                        ],
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 140,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Năm',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          isExpanded: true,
+                          value: _selectedYear,
+                          items: List<DropdownMenuItem<int>>.generate(6, (
+                            int i,
+                          ) {
+                            final int year = DateTime.now().year - i;
+                            return DropdownMenuItem<int>(
+                              value: year,
+                              child: Text(year.toString()),
+                            );
+                          }),
+                          onChanged: (int? v) {
+                            if (v == null) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedYear = v;
+                              _selectedMonth = DateTime(
+                                v,
+                                _selectedMonth.month,
+                              );
+                            });
+                          },
+                        ),
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 24),
                 ],
-              );
-            },
+              ),
+
+              const SizedBox(height: 12),
+
+              Card(
+                color: Colors.white,
+                elevation: 0.8,
+                shadowColor: const Color(0x2278909C),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Phân bố kỷ niệm theo chuyên mục (Tháng đã chọn)',
+                        style:
+                            tt.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ) ??
+                            const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildCategoryPieFromCounts(
+                        _countsForMonth(memories, _selectedMonth),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Card(
+                color: Colors.white,
+                elevation: 0.8,
+                shadowColor: const Color(0x2278909C),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Phân bố kỷ niệm theo chuyên mục (Năm đã chọn)',
+                        style:
+                            tt.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ) ??
+                            const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildCategoryPieFromCounts(
+                        _countsForYear(memories, _selectedYear),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+            ],
+          );
+        },
       ),
     );
   }

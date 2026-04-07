@@ -9,6 +9,28 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function relationshipDocId(fromUid, toUid) {
+      return fromUid + '_' + toUid;
+    }
+
+    function hasAcceptedRelationship(viewerUid, ownerUid) {
+      return exists(
+          /databases/$(database)/documents/social_relationships/$(relationshipDocId(viewerUid, ownerUid))
+        )
+        && get(
+          /databases/$(database)/documents/social_relationships/$(relationshipDocId(viewerUid, ownerUid))
+        ).data.status == 'accepted';
+    }
+
+    function canReadMemory(ownerUid) {
+      return isSignedIn()
+        && (
+          isOwner(ownerUid)
+          || hasAcceptedRelationship(request.auth.uid, ownerUid)
+          || hasAcceptedRelationship(ownerUid, request.auth.uid)
+        );
+    }
+
     function isValidMemoryData(data) {
       return data.userId is string
         && data.userId == request.auth.uid
@@ -31,12 +53,46 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, update, delete: if isOwner(userId);
+      allow read: if isSignedIn();
+      allow update, delete: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
     }
 
+    match /social_relationships/{relationshipId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.followerId == request.auth.uid
+          || resource.data.followingId == request.auth.uid
+        );
+
+      allow create: if isSignedIn()
+        && request.resource.data.followerId == request.auth.uid
+        && request.resource.data.followingId is string
+        && request.resource.data.followingId != request.auth.uid
+        && request.resource.data.status in ['pending', 'accepted'];
+
+      allow update: if isSignedIn()
+        && (
+          // Người theo dõi có thể cập nhật metadata của chính yêu cầu.
+          (
+            resource.data.followerId == request.auth.uid
+            && request.resource.data.followerId == resource.data.followerId
+            && request.resource.data.followingId == resource.data.followingId
+          )
+          // Người được theo dõi có thể chấp nhận yêu cầu.
+          || (
+            resource.data.followingId == request.auth.uid
+            && request.resource.data.followerId == resource.data.followerId
+            && request.resource.data.followingId == resource.data.followingId
+            && request.resource.data.status == 'accepted'
+          )
+        );
+
+      allow delete: if isSignedIn() && resource.data.followerId == request.auth.uid;
+    }
+
     match /memories/{memoryId} {
-      allow read: if isOwner(resource.data.userId);
+      allow read: if canReadMemory(resource.data.userId);
 
       allow create: if isSignedIn()
         && isValidMemoryData(request.resource.data);

@@ -304,6 +304,86 @@ class MemoryService {
     }
   }
 
+  Stream<List<MemoryModel>> getMemoriesForUserIdsStream(List<String> userIds) {
+    final List<String> normalized = userIds
+        .map((String id) => id.trim())
+        .where((String id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (normalized.isEmpty) {
+      return Stream<List<MemoryModel>>.value(<MemoryModel>[]);
+    }
+
+    final List<List<String>> chunks = <List<String>>[];
+    for (int i = 0; i < normalized.length; i += 10) {
+      final int end = (i + 10) > normalized.length ? normalized.length : i + 10;
+      chunks.add(normalized.sublist(i, end));
+    }
+
+    final List<Stream<List<MemoryModel>>> streams = chunks.map((
+      List<String> chunk,
+    ) {
+      return _memoriesRef.where('userId', whereIn: chunk).snapshots().map((
+        QuerySnapshot<Map<String, dynamic>> snapshot,
+      ) {
+        return snapshot.docs
+            .map(
+              (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+                  MemoryModel.fromMap(doc.data(), doc.id),
+            )
+            .toList();
+      });
+    }).toList();
+
+    if (streams.length == 1) {
+      return streams.first.map(_sortMemoriesByDateDesc);
+    }
+
+    return Stream<List<MemoryModel>>.multi((
+      MultiStreamController<List<MemoryModel>> controller,
+    ) {
+      final List<List<MemoryModel>?> latest = List<List<MemoryModel>?>.filled(
+        streams.length,
+        null,
+      );
+      final List<StreamSubscription<List<MemoryModel>>> subscriptions =
+          <StreamSubscription<List<MemoryModel>>>[];
+
+      void emitIfReady() {
+        if (latest.any((List<MemoryModel>? item) => item == null)) {
+          return;
+        }
+        final List<MemoryModel> merged = latest
+            .expand((List<MemoryModel>? item) => item ?? <MemoryModel>[])
+            .toList();
+        controller.add(_sortMemoriesByDateDesc(merged));
+      }
+
+      for (int i = 0; i < streams.length; i++) {
+        final int index = i;
+        subscriptions.add(
+          streams[index].listen((List<MemoryModel> value) {
+            latest[index] = value;
+            emitIfReady();
+          }, onError: controller.addError),
+        );
+      }
+
+      controller.onCancel = () async {
+        for (final StreamSubscription<List<MemoryModel>> sub in subscriptions) {
+          await sub.cancel();
+        }
+      };
+    });
+  }
+
+  List<MemoryModel> _sortMemoriesByDateDesc(List<MemoryModel> items) {
+    final List<MemoryModel> sorted = List<MemoryModel>.from(items);
+    sorted.sort((MemoryModel a, MemoryModel b) => b.date.compareTo(a.date));
+    return sorted;
+  }
+
   /// Retrieve memories once (non-real-time) to avoid platform-channel
   /// threading issues on some desktop platforms.
   Future<List<MemoryModel>> getMemoriesOnce() async {

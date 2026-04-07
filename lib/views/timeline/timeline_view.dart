@@ -156,7 +156,7 @@ class _TimelineViewState extends State<TimelineView> {
 
   Widget _buildMemoryItem(MemoryModel memory) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -169,12 +169,8 @@ class _TimelineViewState extends State<TimelineView> {
                   height: 92,
                   child: Container(
                     width: 3,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF2196F3), Color(0xFF7C4DFF)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9575CD).withValues(alpha: 0.25),
                     ),
                   ),
                 ),
@@ -202,16 +198,16 @@ class _TimelineViewState extends State<TimelineView> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: const <BoxShadow>[
                       BoxShadow(
-                        color: Color(0x1F000000),
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
+                        color: Color(0x2278909C),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: <Widget>[
                       ClipRRect(
@@ -394,32 +390,24 @@ class _TimelineViewState extends State<TimelineView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
-        toolbarHeight: 56,
-        backgroundColor: Colors.transparent,
+        toolbarHeight: 60,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF9575CD),
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2196F3), Color(0xFF7C4DFF)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-          ),
+        centerTitle: true,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: Color(0x2278909C)),
         ),
-        title: Row(
-          children: const <Widget>[
-            Text('📅', style: TextStyle(fontSize: 20)),
-            SizedBox(width: 8),
-            Text(
-              'Dòng thời gian',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 18,
-              ),
-            ),
-          ],
+        title: Text(
+          'Dòng thời gian',
+          style: const TextStyle(
+            color: Color(0xFF9575CD),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
         actions: <Widget>[],
       ),
@@ -468,7 +456,7 @@ class _TimelineViewState extends State<TimelineView> {
             }
             return Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: filtered.length,
                 itemBuilder: (BuildContext c, int i) {
                   final MemoryModel m = filtered[i];
@@ -504,7 +492,7 @@ class _TimelineViewState extends State<TimelineView> {
           return Column(
             children: <Widget>[
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Row(
                   children: <Widget>[
                     Expanded(
@@ -535,7 +523,7 @@ class _TimelineViewState extends State<TimelineView> {
               ),
 
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: SegmentedButton<TimelineGroupMode>(
                   segments: const <ButtonSegment<TimelineGroupMode>>[
                     ButtonSegment(
@@ -587,7 +575,7 @@ class _TimelineViewState extends State<TimelineView> {
               else
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: entries.length,
                     itemBuilder: (BuildContext ctx, int index) {
                       final entry = entries[index];
@@ -601,7 +589,7 @@ class _TimelineViewState extends State<TimelineView> {
                         children: <Widget>[
                           // group header with timeline marker
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                             child: Row(
                               children: <Widget>[
                                 SizedBox(
@@ -611,16 +599,9 @@ class _TimelineViewState extends State<TimelineView> {
                                       Container(
                                         width: 16,
                                         height: 16,
-                                        decoration: const BoxDecoration(
+                                        decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Color(0xFF7C4DFF),
-                                              Color(0xFF2196F3),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
+                                          color: const Color(0xFF9575CD),
                                         ),
                                       ),
                                     ],
@@ -636,8 +617,8 @@ class _TimelineViewState extends State<TimelineView> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: const Color(
-                                          0xFF7C4DFF,
-                                        ).withAlpha(20),
+                                          0xFF9575CD,
+                                        ).withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Text(
@@ -654,10 +635,12 @@ class _TimelineViewState extends State<TimelineView> {
                           ),
 
                           Card(
-                            elevation: 1.5,
+                            elevation: 0.8,
+                            shadowColor: const Color(0x2278909C),
+                            color: Colors.white,
                             margin: const EdgeInsets.only(bottom: 12),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                             child: ExpansionTile(
                               key: ValueKey<String>('group-${entry.key}'),

@@ -8,9 +8,10 @@ import 'providers/main_navigation_provider.dart';
 import 'views/auth/auth_view.dart';
 import 'views/main_screen.dart';
 
-const Color _kPrimaryColor = Color(0xFF1A237E);
-const Color _kAccentColor = Color(0xFFFFC107);
-const Color _kAppBackground = Color(0xFFF5F5F7);
+const Color _kPrimaryColor = Color(0xFF9575CD);
+const Color _kAccentColor = Color(0xFF9575CD);
+const Color _kAppBackground = Color(0xFFF0F2F5);
+const Color _kSubTextColor = Color(0xFF78909C);
 
 const FirebaseOptions _webFirebaseOptions = FirebaseOptions(
   apiKey: 'AIzaSyBygRDAY1m9goXqkbyW1QUsHxnk7EC8VUM',
@@ -83,9 +84,45 @@ class LifeMapApp extends StatelessWidget {
             brightness: Brightness.light,
           ),
           appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: _kPrimaryColor,
+            elevation: 0,
+            centerTitle: true,
+            iconTheme: IconThemeData(color: _kPrimaryColor),
+            actionsIconTheme: IconThemeData(color: _kPrimaryColor),
+            titleTextStyle: TextStyle(
+              color: _kPrimaryColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          cardTheme: CardThemeData(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 0.8,
+            shadowColor: Color(0x2278909C),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _kPrimaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: _kPrimaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
             backgroundColor: _kPrimaryColor,
             foregroundColor: Colors.white,
-            elevation: 0,
+          ),
+          textTheme: const TextTheme(
+            bodySmall: TextStyle(color: _kSubTextColor),
+            bodyMedium: TextStyle(color: _kSubTextColor),
           ),
         ),
         home: AuthWrapper(
