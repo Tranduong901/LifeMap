@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'reaction_model.dart';
 
 class MemoryModel {
   MemoryModel({
@@ -13,7 +14,8 @@ class MemoryModel {
     required this.lng,
     required this.date,
     required this.address,
-  });
+    List<ReactionModel>? reactions,
+  }) : reactions = reactions ?? <ReactionModel>[];
 
   final String id;
   final String userId;
@@ -26,6 +28,7 @@ class MemoryModel {
   final double lng;
   final DateTime date;
   final String address;
+  final List<ReactionModel> reactions;
 
   static const Set<String> _invalidImageValues = <String>{
     'gggggg',
@@ -85,6 +88,13 @@ class MemoryModel {
         .trim()
         .toLowerCase();
 
+    final List<dynamic> rawReactions =
+        data['reactions'] as List<dynamic>? ?? <dynamic>[];
+    final List<ReactionModel> parsedReactions = rawReactions
+        .whereType<Map<String, dynamic>>()
+        .map((Map<String, dynamic> r) => ReactionModel.fromMap(r))
+        .toList();
+
     return MemoryModel(
       id: documentId,
       userId: data['userId'] as String? ?? '',
@@ -105,6 +115,7 @@ class MemoryModel {
           0,
       date: parsedDate,
       address: data['address'] as String? ?? '',
+      reactions: parsedReactions,
     );
   }
 
@@ -127,6 +138,7 @@ class MemoryModel {
       'location': GeoPoint(lat, lng),
       'date': Timestamp.fromDate(date),
       'address': address,
+      'reactions': reactions.map((ReactionModel r) => r.toMap()).toList(),
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -144,6 +156,7 @@ class MemoryModel {
     double? lng,
     DateTime? date,
     String? address,
+    List<ReactionModel>? reactions,
   }) {
     return MemoryModel(
       id: id ?? this.id,
@@ -157,6 +170,7 @@ class MemoryModel {
       lng: lng ?? this.lng,
       date: date ?? this.date,
       address: address ?? this.address,
+      reactions: reactions ?? this.reactions,
     );
   }
 
@@ -173,6 +187,7 @@ class MemoryModel {
       'lng': lng,
       'dateMillis': date.millisecondsSinceEpoch,
       'address': address,
+      'reactions': reactions.map((ReactionModel r) => r.toMap()).toList(),
     };
   }
 
@@ -201,6 +216,10 @@ class MemoryModel {
       lng: (data['lng'] as num?)?.toDouble() ?? 0,
       date: DateTime.fromMillisecondsSinceEpoch(millis),
       address: data['address'] as String? ?? '',
+      reactions: (data['reactions'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map((Map<String, dynamic> r) => ReactionModel.fromMap(r))
+          .toList(),
     );
   }
 }
