@@ -89,582 +89,490 @@ Trong kỷ nguyên số hóa, lượng dữ liệu hình ảnh mà người dùn
 - Dễ tích hợp với architecture pattern (Repository, ViewModel)
 - Hỗ trợ các loại providers: StateNotifier, ChangeNotifier, ProxyProvider
 
-### 2.3 Use Cases & Chức Năng Chính
+### 2.3 Use Cases & Chức Năng Chính (Đối Chiếu Theo Code Thực Tế)
 
-#### 2.3.1 Use Cases Chính
+#### 2.3.1 Kết Quả Đối Chiếu Tính Năng
 
-```plaintext
-┌─────────────────────────────────────────────────────────┐
-│                      LifeMap System                      │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  UC1: Google Sign-In (Xác thực)                         │
-│  UC2: Thêm kỷ niệm (Chụp ảnh + GPS + Meta)            │
-│  UC3: Hiển thị bản đồ kỷ niệm (Zoom, Pan, Cluster)    │
-│  UC4: Tìm bạn (Tìm bằng Gmail)                         │
-│  UC5: Gửi lời mời kết bạn (Follow Request)            │
-│  UC6: Chấp nhận/Từ chối lời mời                       │
-│  UC7: Xem kỷ niệm bạn bè (Với quyền được phép)        │
-│  UC8: Quét QR code (Kết nối bạn bè nhanh)            │
-│  UC9: Lọc kỷ niệm (Của tôi / Bạn bè / Theo chủ đề)   │
-│  UC10: Xem dòng thời gian Polaroid                     │
-│                                                           │
-└─────────────────────────────────────────────────────────┘
-```
+| Use Case | Trạng thái | Ghi chú đối chiếu code |
+|----------|------------|------------------------|
+| **UC1: Xác thực tài khoản (Email/Password + Google)** | ✅ Đã triển khai | Có đăng ký/đăng nhập email-mật khẩu và đăng nhập Google, đồng bộ user lên Firestore |
+| **UC2: Thêm kỷ niệm** | ✅ Đã triển khai | Có camera/gallery, metadata, location, upload ảnh |
+| **UC3: Hiển thị bản đồ kỷ niệm** | ✅ Đã triển khai | Có map marker, zoom/pan, bottom sheet chi tiết |
+| **UC4: Tìm bạn** | ✅ Đã triển khai | Tìm theo email/nickname, hiển thị trạng thái quan hệ |
+| **UC5: Gửi lời mời kết bạn** | ✅ Đã triển khai | Tạo `social_relationships` với trạng thái `pending` |
+| **UC6: Chấp nhận kết nối** | ✅ Đã triển khai | Cập nhật trạng thái `accepted` |
+| **UC7: Xem kỷ niệm bạn bè** | ✅ Đã triển khai | Chỉ hiển thị memory theo danh sách accepted |
+| **UC8: Thả cảm xúc cho kỷ niệm** | ⚠️ Triển khai một phần | Có UI thả cảm xúc trong map bottom sheet; chưa có màn hình reactions độc lập |
+| **UC9: Lọc kỷ niệm** | ✅ Đã triển khai | Có lọc theo keyword/topic/owner/date tùy màn hình |
+| **UC10: Timeline kỷ niệm** | ✅ Đã triển khai | Có nhóm theo tuần/tháng/năm và xem chi tiết |
 
-#### 2.3.2 Mô Tả Chi Tiết Các Use Cases
+Ghi chú quan trọng:
+- Chức năng **quét QR kết nối bạn bè chưa có trong code hiện tại**.
+- Chức năng thả cảm xúc **đã có thao tác chính**, nhưng còn ở mức cơ bản và chưa mở rộng thành module social hoàn chỉnh.
 
-| Use Case | Diễn Viên | Mô Tả Quy Trình |
-|----------|-----------|-----------------|
-| **UC1: Google Sign-In** | User | Nhấp "Login with Google" → Chọn tài khoản Gmail → OAuth flow → Lưu token & User info vào Firestore |
-| **UC2: Thêm Kỷ Niệm** | User | Vào trang "New Memory" → Chụp/Chọn ảnh → Thêm title, description, topic, address → Hệ thống lấy GPS → Upload → Lưu metadata |
-| **UC3: Hiển Thị Bản Đồ** | User | Mở trang Map → flutter_map render Markers từ Firestore → Hỗ trợ clustering khi zoom out |
-| **UC4: Tìm Bạn** | User | Vào "Find Friends" → Nhập email → Query Firestore users collection → Hiển thị kết quả |
-| **UC5: Gửi Lời Mời** | User | Nhấp nút "Add Friend" → Tạo document seguier Firestore với status="pending" |
-| **UC6: Chấp Nhận** | User B | Xem danh sách "Pending Requests" → Chấp nhận → Cập nhật status="accepted" |
-| **UC7: Xem Kỷ Niệm Bạn Bè** | User | Bản đồ chỉ hiển thị memories của users có quan hệ accepted |
-| **UC8: Quét QR Code** | User | Công nghệ hybrid: kiểm tra email từ QR → Tìm user → Tự động gửi follow request |
-| **UC9: Lọc Kỷ Niệm** | User | Tab filter: "My Memories" / "Friends" / Filter by topic (citywalk, food, trekking, beach, culture) |
-| **UC10: Dòng Thời Gian** | User | Horizontal scrollable dòng thời gian với ảnh Polaroid-style, sắp xếp theo date |
+#### 2.3.2 Đặc Tả Chi Tiết Các Use Case Hiện Có
 
-#### 2.3.3 Mô Tả Chi Tiết Từng Use Case
+**UC1: Xác thực tài khoản (Email/Password + Google)**
 
-**UC1: Google Sign-In (Xác Thực)**
+```text
+Mục tiêu:
+  Cung cấp đầy đủ luồng xác thực gồm đăng ký, đăng nhập bằng email/mật khẩu và đăng nhập Google.
 
-```
-Mục Tiêu: Người dùng chưa có tài khoản có thể đăng nhập an toàn bằng Google.
-
-Diễn Viên (Actors):
-  - User (người dùng)
+Diễn viên:
+  - User
   - LifeMap App
   - Firebase Authentication
-  - Google OAuth Server
+  - Google OAuth (với luồng Google Sign-In)
 
-Điều Kiện Trước (Pre-conditions):
-  - Ứng dụng được cài đặt trên thiết bị
-  - Có kết nối internet (WiFi hoặc mobile data)
-  - Thiết bị đã cấu hình tài khoản Google
+Tiền điều kiện:
+  - Có internet.
+  - Firebase đã cấu hình.
+  - Người dùng có email hợp lệ (với luồng Email/Password) hoặc tài khoản Google (với luồng Google).
 
-Flow Chính:
-  1. User nhấp nút "Login with Google" trên màn hình splash
-  2. App gọi GoogleSignIn().signIn()
-  3. Google Sign-In dialog hiện lên
-  4. User chọn một tài khoản Google (hoặc nhập email)
-  5. User xác nhận quyền truy cập (nếu lần đầu)
-  6. Google trả về ID token & Access token
-  7. Firebase xác minh token
-  8. App tạo Firebase user document
-  9. User được điều hướng tới Home screen
-  10. Session được lưu (Firebase auto-persist)
+Luồng chính:
+  A. Luồng Email/Password:
+  1) User nhập email, mật khẩu và chọn đăng ký hoặc đăng nhập.
+  2) App gọi Firebase Auth tương ứng (createUser/signInWithEmailAndPassword).
+  3) App tạo/cập nhật hồ sơ user trong Firestore.
+  4) Điều hướng vào màn hình chính.
 
-Điều Kiện Sau (Post-conditions):
-  - User được xác thực trên Firebase
-  - User document được tạo trong collection /users/{uid}
-  - Auth token được lưu securely trên device
-  - User có quyền truy cập vào các tính năng
+  B. Luồng Google Sign-In:
+  1) User nhấn đăng nhập Google.
+  2) App gọi sign-in với Google và nhận credential.
+  3) Firebase xác thực credential.
+  4) App tạo/cập nhật hồ sơ user trong Firestore.
+  5) Điều hướng vào màn hình chính.
 
-Edge Cases:
-  - ❌ Người dùng huỷ login → Quay lại splash screen
-  - ❌ Không có internet → Hiển thị error message
-  - ❌ Token hết hạn → Auto-refresh token
-  - ⚠️ Tài khoản bị vô hiệu hóa → Hiển thị error, không thể login
-
-Lợi Ích Bảo Mật:
-  - OAuth 2.0 flow, không lưu mật khẩu
-  - Token được mã hóa
-  - Phiên được quản lý bởi Firebase
+Hậu điều kiện:
+  - User có session hợp lệ.
+  - Document user tồn tại trong collection users.
+  - Hỗ trợ cả người dùng email/mật khẩu và Google.
 ```
 
 ---
 
-**UC2: Thêm Kỷ Niệm (Chụp Ảnh + GPS + Meta)**
+**UC2: Thêm kỷ niệm (Ảnh + GPS + Metadata)**
 
-```
-Mục Tiêu: User có thể chụp ảnh mới hoặc chọn từ gallery, 
-          thêm metadata, và lưu vào Firestore với tọa độ GPS.
+```text
+Mục tiêu:
+  Tạo memory mới với đầy đủ dữ liệu nội dung và vị trí.
 
-Diễn Viên (Actors):
+Diễn viên:
   - User
   - LifeMap App
   - Camera/Gallery
-  - Geolocator service
-  - Cloudinary (upload ảnh)
-  - Firebase Firestore
+  - Geolocator
+  - Cloudinary
+  - Firestore
 
-Điều Kiện Trước (Pre-conditions):
-  - User đã đăng nhập
-  - Cấp quyền Camera & Location (nếu lần đầu)
-  - Có kết nối internet
+Tiền điều kiện:
+  - User đã đăng nhập.
+  - Có quyền camera (nếu chụp ảnh) và location (nếu lấy GPS tự động).
 
-Flow Chính:
-  1. User nhấp nút "+" trên Home screen
-  2. Hiển thị dialog: "Take Photo" vs "Select from Gallery"
-  3. Nếu "Take Photo":
-     a. Camera được khởi động
-     b. User chụp ảnh
-     c. Preview ảnh được hiển thị
-     d. User xác nhận hoặc chụp lại
-  4. Nếu "Select from Gallery":
-     a. Image picker mở ra
-     b. User chọn ảnh từ gallery
-     c. Preview ảnh được hiển thị
-  5. Form appears với các trường:
-     - Title (text input, max 120 chars)
-     - Description (text input, max 5000 chars)
-     - Topic (dropdown: citywalk, food, trekking, beach, culture)
-     - Address (text input auto-populated hoặc manual)
-  6. User nhập thông tin
-  7. App lấy GPS tọa độ hiện tại (request permission nếu cần)
-  8. Show loading indicator
-  9. Upload ảnh lên Cloudinary:
-     - Compress ảnh tới 1080px width
-     - Nhận URL trả về
-  10. Tạo memory document trong Firestore:
-      {
-        userId: currentUser.uid,
-        title, description, address, topic,
-        imageUrl: cloudinaryUrl,
-        lat, lng,
-        date: now(),
-        reactions: [],
-        createdAt: now()
-      }
-  11. Show success toast: "Kỷ niệm đã được lưu!"
-  12. Quay lại Home screen, memory được thêm vào list (realtime)
+Luồng chính:
+  1) User chọn ảnh từ camera hoặc thư viện.
+  2) User nhập title, description, topic, address.
+  3) App lấy tọa độ, nén ảnh và upload lên Cloudinary.
+  4) App lưu memory lên Firestore với imageUrl/imageUrls, lat/lng, date.
 
-Điều Kiện Sau (Post-conditions):
-  - Memory document được tạo trong Firestore
-  - Ảnh được upload lên Cloudinary
-  - Memory xuất hiện trên bản đồ
-  - Notification được gửi (nếu có friends)
-
-Edge Cases:
-  - ❌ User huỷ việc chụp/chọn ảnh → Quay lại Create screen
-  - ❌ Định dạng ảnh không hỗ trợ → Show error
-  - ❌ GPS bị tắt → Cho phép nhập địa chỉ thủ công
-  - ❌ Upload thất bại → Retry logic hoặc draft lưu local
-  - ⚠️ Ảnh quá lớn (> 50MB) → Auto-compress
-  - ⚠️ Network chậm → Show progress bar, có thể save draft
+Hậu điều kiện:
+  - Memory xuất hiện trên map và timeline.
 ```
 
 ---
 
-**UC3: Hiển Thị Bản Đồ Kỷ Niệm (Zoom, Pan, Cluster)**
+**UC3: Hiển thị bản đồ kỷ niệm**
 
-```
-Mục Tiêu: User xem tất cả kỷ niệm trên bản đồ tương tác,
-          với hỗ trợ zoom, pan, clustering.
+```text
+Mục tiêu:
+  Trực quan hóa kỷ niệm theo vị trí địa lý và tương tác nhanh trên map.
 
-Diễn Viên (Actors):
+Diễn viên:
   - User
   - LifeMap App
-  - flutter_map (OpenStreetMap)
-  - Firestore
-  - Map Tile Server
+  - OpenStreetMap/flutter_map
 
-Điều Kiện Trước (Pre-conditions):
-  - User đã đăng nhập
-  - Có kết nối internet
-  - Permissions: Location (optional, để center map ở vị trí hiện tại)
+Tiền điều kiện:
+  - User đăng nhập và có dữ liệu memory hợp lệ.
 
-Flow Chính:
-  1. User nhấp tab "Map" trên bottom navbar
-  2. App khởi tạo MapController
-  3. Query Firestore: 
-     - Lấy memories của user (canReadMemory check)
-     - Order by: lat, lng (spatial query không trực tiếp, filter client-side)
-  4. flutter_map render bản đồ OpenStreetMap
-  5. Thêm Markers cho từng memory (ở layer ngoài cùng)
-  6. Khi zoom < 12: Apply clustering
-     - MarkerClusterPlugin tính toán clusters
-     - Hiển thị cluster icons với số lượng
-  7. Khi zoom >= 12: Hiển thị từng marker riêng lẻ
-  8. User có thể:
-     - **Zoom in/out**: Pinch gesture (mobile) hoặc scroll wheel (web)
-     - **Pan**: Drag gesture
-     - **Tap marker**: Bottom sheet hiện ảnh preview + title + "View Details"
-     - **Tap cluster**: Zoom tới cluster center
-     - **Long press**: Show context menu (delete, share, etc.)
-  9. Marker colors dựa trên topic:
-     - 🚶 citywalk → Blue
-     - 🍽️ food → Orange
-     - 🥾 trekking → Green
-     - 🏖️ beach → Cyan
-     - 🎭 culture → Purple
+Luồng chính:
+  1) App tải memory của tôi và memory bạn bè được phép xem.
+  2) Render marker trên map.
+  3) Khi zoom thay đổi, app điều chỉnh độ chi tiết marker.
+  4) User chạm marker để mở bottom sheet và xem chi tiết.
 
-Điều Kiện Sau (Post-conditions):
-  - Map được hiển thị đúng vị trí USA (hoặc user location)
-  - Memories có thể tương tác
-  - User có thể navigate detail view
-
-Edge Cases:
-  - ❌ Không có memories → Show "No memories yet" overlay
-  - ❌ GPS không được phép → Center ở default location (0,0) hoặc ask permission again
-  - ⚠️ Quá nhiều markers (> 1000) → Apply aggressive clustering
-  - ⚠️ Network chậm → Show loading spinner, cache tiles
-  - ⚠️ Memory bị xoá khi viewing → Remove marker realtime
+Ghi chú kỹ thuật:
+  - Hiện tại chưa dùng cụm marker kiểu plugin cluster; hệ thống dùng chiến lược giảm chi tiết marker theo zoom.
 ```
 
 ---
 
-**UC4: Tìm Bạn (Tìm bằng Gmail)**
+**UC4: Tìm bạn**
 
-```
-Mục Tiêu: User tìm kiếm người dùng khác bằng địa chỉ Gmail.
+```text
+Mục tiêu:
+  Tìm user khác theo Gmail hoặc nickname để kết nối.
 
-Diễn Viên (Actors):
-  - User (seeker)
+Diễn viên:
+  - User
   - LifeMap App
-  - Firestore users collection
-  - User được tìm (optional actor)
+  - Firestore users
 
-Điều Kiện Trước (Pre-conditions):
-  - User đã đăng nhập
-  - Có kết nối internet
-  - Tài khoản khác tồn tại
-
-Flow Chính:
-  1. User nhấp tab "Friends" hoặc nút "+" trên friends section
-  2. Màn hình "Find Friends" hiện lên
-  3. Có SearchField với placeholder "Tìm bằng email..."
-  4. User nhập email (vd: john@example.com)
-  5. Real-time search query:
-     - App query: firestore.collection('users')
-       .where('email', isEqualTo: email.toLowerCase())
-  6. Kết quả hiển thị tức thì (hoặc sau debounce 300ms)
-  7. Mỗi result hiển thị:
-     - Avatar
-     - Display name
-     - Email
-     - Nút "Add Friend" hoặc "Pending" hoặc "Friends"
-  8. User nhấp "Add Friend"
-     → UC5 được trigger (xem UC5)
-
-Điều Kiện Sau (Post-conditions):
-  - User được tìm thấy hoặc không
-  - (Nếu tìm thấy) User có quyền gửi follow request
-
-Edge Cases:
-  - ❌ Email không tồn tại → Show "User not found"
-  - ❌ Tìm chính mình → Show message "This is you!"
-  - ⚠️ Email không đúng format → Show validation error
-  - ⚠️ User đã là friend → Show "Already friends" + option to unfollow
-  - ⚠️ Follow request đã gửi → Show "Request pending"
+Luồng chính:
+  1) User nhập từ khóa tìm kiếm.
+  2) App truy vấn users và loại trừ tài khoản hiện tại.
+  3) App hiển thị danh sách kết quả kèm trạng thái quan hệ.
 ```
 
 ---
 
-**UC5: Gửi Lời Mời Kết Bạn (Follow Request)**
+**UC5: Gửi lời mời kết bạn**
 
-```
-Mục Tiêu: User A gửi follow request tới User B.
+```text
+Mục tiêu:
+  Tạo yêu cầu theo dõi ở trạng thái pending.
 
-Diễn Viên (Actors):
-  - User A (follower/requester)
-  - User B (following/responder)
+Diễn viên:
+  - User gửi yêu cầu
+  - User nhận yêu cầu
   - LifeMap App
-  - Firestore
 
-Điều Kiện Trước (Pre-conditions):
-  - User A đã đăng nhập
-  - User B tồn tại
-  - User A và B chưa có relationship hoặc relationship status != "accepted"
-
-Flow Chính:
-  1. User A nhấp nút "Add Friend" (từ UC4 hoặc profile User B)
-  2. App tạo document trong collection /social_relationships/:
-     {
-       followerId: userA.uid,
-       followingId: userB.uid,
-       status: "pending",
-       createdAt: now(),
-       updatedAt: now()
-     }
-  3. Firestore Security Rules kiểm tra:
-     - isSignedIn()
-     - request.resource.data.followerId == request.auth.uid
-     - followingId != uid (không follow chính mình)
-  4. Document được tạo thành công
-  5. UX update: Button thay đổi thành "Request Sent" (disabled)
-  6. (Optional) Notification được gửi tới User B
-     → Cloud Function hoặc Firebase Messaging trigger
-
-Điều Kiện Sau (Post-conditions):
-  - Relationship document được tạo với status="pending"
-  - User B nhận thông báo
-  - Relationship được lưu vô thời hạn (tới khi User B chấp nhận/từ chối)
-
-Edge Cases:
-  - ❌ Network error → Retry hoặc draft locally
-  - ⚠️ User B không tồn tại → Firebase batch write fail
-  - ⚠️ User A self-follow → Security Rules reject
-  - ⚠️ Request từ trước → Check relationship tồn tại trước khi tạo
+Luồng chính:
+  1) User nhấn "Kết bạn".
+  2) App tạo document quan hệ trong social_relationships.
+  3) Status mặc định là pending.
 ```
 
 ---
 
-**UC6: Chấp Nhận/Từ Chối Lời Mời**
+**UC6: Chấp nhận kết nối**
 
-```
-Mục Tiêu: User B xem danh sách lời mời và chấp nhận hoặc từ chối.
+```text
+Mục tiêu:
+  Xác nhận lời mời để mở quyền xem kỷ niệm xã hội.
 
-Diễn Viên (Actors):
-  - User B (recipient)
-  - User A (requester)
+Diễn viên:
+  - User nhận yêu cầu
   - LifeMap App
-  - Firestore
 
-Điều Kiện Trước (Pre-conditions):
-  - User B đã đăng nhập
-  - Tồn tại relationship document với followerId=A, followingId=B, status="pending"
+Luồng chính:
+  1) User nhấn "Chấp nhận".
+  2) App cập nhật relationship status -> accepted.
+  3) Hai bên có thể thấy dữ liệu theo cơ chế đã cấp quyền.
 
-Flow Chính - CHẤP NHẬN:
-  1. User B mở tab "Friends"
-  2. Danh sách "Friend Requests" hiển thị
-  3. Mỗi request item hiển thị User A's avatar + name + "Accept" / "Decline"
-  4. User B nhấp "Accept"
-  5. App gọi: firestore.collection('social_relationships').doc(docId)
-     .update({ status: "accepted", updatedAt: now() })
-  6. Firestore Security Rules kiểm tra:
-     - isSignedIn()
-     - resource.data.followingId == request.auth.uid (chỉ người theo dõi được phép accept)
-     - request.resource.data.status == "accepted"
-  7. Update thành công
-  8. UX update: Item bị loại khỏi "Requests", thêm vào "Friends"
-  9. (Optional) Notification gửi tới User A: "user_b accepted your request"
-
-Flow Chính - TỪ CHỐI:
-  1. User B nhấp "Decline"
-  2. App DELETE document hoặc set status="declined"
-  3. Relationship bị xóa
-  4. UX update: Item bị loại khỏi "Requests"
-
-Điều Kiện Sau (Post-conditions):
-  - Status thay đổi: pending → accepted HOẶC document bị xóa
-  - Cả hai users (A, B) có thể xem memories của nhau (nếu accepted)
-
-Edge Cases:
-  - ❌ Document bị xóa trước khi accept → Show "Request expired"
-  - ⚠️ User A huỷ request trước → Firestore transaction conflict
-  - ⚠️ Duplicate requests → Database design: use compound key
+Ghi chú:
+  - Luồng từ chối riêng chưa tách rõ thành nghiệp vụ riêng; hiện chủ yếu xử lý bằng xóa quan hệ/unfollow.
 ```
 
 ---
 
-**UC7: Xem Kỷ Niệm Bạn Bè (Với Quyền Được Phép)**
+**UC7: Xem kỷ niệm bạn bè (Theo quyền)**
 
-```
-Mục Tiêu: User xem kỷ niệm của bạn bè (chỉ những người có accepted relationship).
+```text
+Mục tiêu:
+  Chỉ hiển thị memory của user có quan hệ accepted.
 
-Diễn Viên (Actors):
-  - User A (viewer)
-  - User B (memory owner)
-  - LifeMap App
-  - Firestore
-
-Điều Kiện Trước (Pre-conditions):
-  - User A đã đăng nhập
-  - Tồn tại relationship: (A, B) hoặc (B, A) với status="accepted"
-  - User B có ít nhất 1 memory
-
-Flow Chính:
-  1. User A nhấp tab "Map"
-  2. App query memories với quyền:
-     - isSignedIn() && 
-     - (isOwner(userId) || 
-        hasAcceptedRelationship(userA, userB) ||
-        hasAcceptedRelationship(userB, userA))
-  3. Firestore Security Rules filter:
-     // Function hasAcceptedRelationship từ firestore.rules
-     - Check document /social_relationships/relationshipId tồn tại
-     - Check status == "accepted"
-  4. Nếu accepted, memory **được hiển thị** trên map:
-     - Marker marker của User B xuất hiện
-     - Color khác (hoặc có icon/badge): "Friend's memory"
-  5. User A tap vào marker → see User B's memory detail
-  6. Nếu User A là owner của memory: hiển thị edit/delete buttons
-     Nếu User A là friend: hiển thị reactions (like, love, etc.)
-
-Điều Kiện Sau (Post-conditions):
-  - Friend memories được hiển thị trên map
-  - User A có thể tương tác (view, react)
-
-Edge Cases:
-  - ❌ Friendship bị remove → Memory biến mất từ map realtime
-  - ❌ User B xoá memory → Marker bị loại bỏ
-  - ⚠️ Relationship từ trước khi app startup → Cache liveData update
-```
-
----
-
-**UC8: Quét QR Code (Kết Nối Bạn Bè Nhanh)**
-
-```
-Mục Tiêu: User A quét QR code của User B để nhanh chóng gửi follow request.
-
-Diễn Viên (Actors):
-  - User A (scanner)
-  - User B (QR code creator)
-  - LifeMap App
-  - mobile_scanner (camera)
-  - image_picker (gallery)
-  - Firestore
-
-Điều Kiện Trước (Pre-conditions):
-  - User A đã đăng nhập
-  - Cấp quyền Camera (nếu quét realtime)
-  - User B có QR code (có thể được gen trong profile page)
-
-Flow Chính - REALTIME CAMERA:
-  1. User A nhấp nút "Scan QR" trong Friends tab
-  2. Màn hình camera mở ra (mobile_scanner)
-  3. Camera live preview được hiển thị
-  4. Guide overlay: "Hãy quét QR code"
-  5. mobile_scanner realtime detect QR:
-     - Khi detect QR: vibrate + beep
-     - QR data được extract: vd "user_b@email.com" hoặc "userId_xyz"
-  6. App xử lý QR data:
-     a. Parse QR string (có thể là email hoặc userId)
-     b. Query users collection:
-        - firestore.collection('users')
-          .where('email', isEqualTo: parsedEmail)
-          .get()
-     c. Nhận User B's document
-  7. Automatic trigger UC5: gửi follow request
-  8. Show dialog: "Follow request sent to User B!"
-  9. Close camera
-
-Flow Chính - GALLERY IMAGE:
-  1. User nhấp tab "Use image" trên camera screen
-  2. Image picker mở, User chọn ảnh
-  3. App dùng zxing_dart para decode QR từ image:
-     - final result = await zxing.decodeImage(image.path)
-  4. Lấy QR data, tiếp tục bước 6 từ trên
-
-Điều Kiện Sau (Post-conditions):
-  - Follow request được gửi tự động
-  - User A và B có thể thấy nhau trên map (sau accept)
-
-Edge Cases:
-  - ❌ QR code hết hạn / không hợp lệ → Show error
-  - ❌ Không detect QR được → Show retry message
-  - ⚠️ Người dùng từ chối camera permission → Fallback: enter email manually
-  - ⚠️ QR format sai → Validation error
-```
-
----
-
-**UC9: Lọc Kỷ Niệm (Của Tôi / Bạn Bè / Theo Chủ Đề)**
-
-```
-Mục Tiêu: User lọc memories theo source (mine/friends) và topic.
-
-Diễn Viên (Actors):
+Diễn viên:
   - User
   - LifeMap App
   - Firestore
 
-Điều Kiện Trước (Pre-conditions):
-  - User đã đăng nhập
-  - Có memories để lọc
-
-Flow Chính:
-  1. User mở Home screen / Map screen
-  2. Tap icon "Filter" hoặc scroll filter bar
-  3. Filter options hiện lên:
-     │ Source:
-     │  ◉ All
-     │  ○ My Memories
-     │  ○ Friends' Memories
-     │
-     │ Topic:
-     │  ☑ Citywalk
-     │  ☑ Food
-     │  ☑ Trekking
-     │  ☑ Beach
-     │  ☑ Culture
-  4. User chọn combination:
-     - Source: "My Memories"
-     - Topics: [food, citywalk]
-  5. App filter client-side (hoặc lazy-load từ Firestore):
-     Memories = all.filter((m) =>
-       (source == 'all' || m.userId == currentUser.uid) &&
-       selectedTopics.contains(m.topic)
-     )
-  6. ListView được rerender với filtered items
-  7. Map pins được update (show/hide dựa trên filter)
-  8. User có thể bỏ filter bằng nút "Clear Filter"
-
-Điều Kiện Sau (Post-conditions):
-  - Memories được hiển thị theo filter
-  - Filter state được lưu (optional: UserDefaults)
-
-Edge Cases:
-  - ❌ Không có memories match filter → Show "No memories found"
-  - ⚠️ Filter quá hạn chế → UI hint: "Try loosening filters"
+Luồng chính:
+  1) App lấy danh sách following accepted của user hiện tại.
+  2) App lọc memory theo owner hợp lệ (tôi + accepted friends).
+  3) Memory bạn bè được hiển thị trên map và có thể xem chi tiết.
 ```
 
 ---
 
-**UC10: Xem Dòng Thời Gian Polaroid**
+**UC8: Thả cảm xúc cho kỷ niệm**
 
-```
-Mục Tiêu: User xem timeline của tất cả memories với ảnh Polaroid-style.
+```text
+Mục tiêu:
+  Tạo tương tác xã hội nhanh trên từng memory.
 
-Diễn Viên (Actors):
+Diễn viên:
   - User
   - LifeMap App
   - Firestore
 
-Điều Kiện Trước (Pre-conditions):
-  - User đã đăng nhập
-  - User có ít nhất 1 memory
+Luồng chính:
+  1) User mở memory bottom sheet trên map.
+  2) User chọn emoji cảm xúc (ví dụ: ❤️ 👍 😮 😂 😢).
+  3) App ghi reaction vào mảng reactions của memory.
+  4) Nếu user chọn lại cùng emoji trước đó, app xóa reaction.
 
-Flow Chính:
-  1. User mở Home screen
-  2. Scroll để thấy section "Timeline" hoặc nhấp tab "Timeline"
-  3. Horizontal ListView hiện lên (scrollable trái/phải)
-  4. Mỗi item là Polaroid card:
-     ┌──────────────────┐
-     │    [Image]       │
-     │     (180 x 140)  │
-     ├──────────────────┤
-     │ Memory Title     │
-     │ 2024-04-07       │
-     └──────────────────┘
-  5. Cards được sắp xếp theo **date descending** (mới nhất trước)
-  6. Mỗi card có slight rotation (±2-5 degrees) để giống Polaroid
-  7. Shadow/elevation để tạo 3D effect
-  8. Tap card:
-     a. Show detail view của memory
-     b. Slide animation enter
-  9. Long-press card:
-     a. Context menu: "View", "Edit", "Share", "Delete"
-  10. Swipe left/right để navigate
-  11. Smooth animation khi scroll/swipe
-
-Styling Polaroid:
-  - Border: white với box shadow
-  - Gap từ ảnh tới text: ~16px
-  - Corner radius: 4px (ít hơn M3 để giống retro)
-  - Image aspect ratio: 4:3 (classic Polaroid)
-  - Font: Body small, title, date
-
-Điều Kiện Sau (Post-conditions):
-  - User xem được tất cả memories in timeline view
-  - Có thể navigate tới detail
-
-Edge Cases:
-  - ❌ Không có memories → Show "No memories yet"
-  - ⚠️ Quá nhiều memories → Implement pagination hoặc lazy-load
-  - ⚠️ Large images → Cloudinary thumbnail optimization
+Trạng thái hiện tại:
+  - Đã có thao tác thả/xóa cảm xúc trong map view.
+  - Chưa có trang tổng hợp hoặc analytics reactions riêng.
 ```
 
 ---
 
-### 2.4 Thiết Kế Cấu Trúc Dữ Liệu Firestore
+**UC9: Lọc kỷ niệm**
 
-#### 2.4.1 Collections & Document Structure
+```text
+Mục tiêu:
+  Giúp user truy xuất nhanh tập memory mong muốn.
+
+Luồng chính:
+  - Map view: lọc theo keyword, topic, owner (mine/friends/all).
+  - Timeline view: lọc theo keyword và khoảng thời gian.
+
+Hậu điều kiện:
+  - Danh sách và marker được cập nhật theo điều kiện lọc.
+```
+
+---
+
+**UC10: Timeline kỷ niệm**
+
+```text
+Mục tiêu:
+  Trình bày hành trình kỷ niệm theo trục thời gian.
+
+Luồng chính:
+  1) App tải memories của user.
+  2) Nhóm theo tuần/tháng/năm.
+  3) Hiển thị card và cho phép xem chi tiết/chỉnh sửa/xóa.
+
+Hậu điều kiện:
+  - User theo dõi được tiến trình kỷ niệm theo thời gian một cách trực quan.
+```
+
+#### 2.3.3 Chức Năng Chưa Có Trong Code Hiện Tại (Đưa Vào Roadmap)
+
+**QR Scan kết nối bạn bè**
+
+```text
+Trạng thái:
+  - Chưa triển khai trong phiên bản hiện tại.
+
+Ghi chú:
+  - Chưa có package QR scan tương ứng trong dependencies hiện dùng.
+  - Khi triển khai có thể bổ sung thành use case mở rộng cho social flow.
+```
+
+#### 2.3.4 Ràng Buộc Xuyên Suốt
+
+- Mọi thao tác ghi dữ liệu phải đi qua Security Rules.
+- Dữ liệu nghiệp vụ chính cần đảm bảo các trường nền tảng: `userId`, `createdAt`, `updatedAt`.
+- Các thao tác mạng phải có trạng thái loading, xử lý lỗi và khả năng retry.
+- Tối ưu hiệu năng map/timeline bằng chiến lược giảm chi tiết theo zoom, cache ảnh và tải lười.
+
+---
+
+### 2.4 Thiết Kế Điều Hướng (Navigation Flow) & Cấu Trúc Widget (Widget Tree)
+
+#### 2.4.1 Navigation Flow Tổng Thể
+
+```text
+App Start
+   |
+   v
+main() -> Firebase.initializeApp()
+   |
+   v
+LifeMapApp (MaterialApp)
+   |
+   v
+AuthWrapper (StreamBuilder authStateChanges)
+   |-------------------------------|
+   |                               |
+   v                               v
+AuthView (chưa đăng nhập)          MainScreen (đã đăng nhập)
+                                   |
+                                   v
+                           IndexedStack + NavigationBar
+                           [Bản đồ] [Kỷ niệm] [Bạn bè] [Cá nhân]
+```
+
+Giải thích:
+- `AuthWrapper` là điểm điều hướng gốc, quyết định hiển thị `AuthView` hay `MainScreen` dựa trên trạng thái đăng nhập Firebase.
+- `MainScreen` dùng `IndexedStack` để giữ state từng tab khi chuyển tab (không bị rebuild toàn bộ màn hình con).
+- Trạng thái tab được quản lý bởi `MainNavigationProvider`.
+
+#### 2.4.2 Navigation Flow Theo Từng Cụm Chức Năng
+
+**A. Luồng Xác thực**
+
+```text
+AuthView
+  |- Đăng nhập Email/Password -> FirebaseAuth.signInWithEmailAndPassword
+  |- Đăng ký Email/Password    -> FirebaseAuth.createUserWithEmailAndPassword
+  |- Đăng nhập Google          -> Google OAuth -> Firebase credential
+  `- Thành công -> MainScreen
+
+MainScreen / ProfileView
+  `- Đăng xuất -> AuthService.signOut() -> AuthWrapper tự chuyển về AuthView
+```
+
+**B. Luồng Tab Bản đồ**
+
+```text
+MainScreen(Tab: Bản đồ)
+   |
+   v
+MapView
+  |- Stream memories (mine + accepted friends)
+  |- Tap marker -> BottomSheet (preview + reactions)
+  |                |- Thả cảm xúc / xóa cảm xúc
+  |                `- Xem chi tiết -> MemoryDetailView
+  `- Nút thêm mới -> AddMemoryView
+                     |- CameraCaptureView (chụp ảnh)
+                     `- Gallery picker (chọn ảnh)
+```
+
+**C. Luồng Tab Kỷ niệm (Timeline)**
+
+```text
+MainScreen(Tab: Kỷ niệm)
+   |
+   v
+TimelineView
+  |- Search + filter date
+  |- Group mode: week/month/year
+  |- Tap memory item -> MemoryDetailView
+  |- Menu item -> Edit -> AddMemoryView(initialMemory)
+  |- Menu item -> Delete -> Confirm Dialog
+  `- Create new -> AddMemoryView
+```
+
+**D. Luồng Tab Bạn bè**
+
+```text
+MainScreen(Tab: Bạn bè)
+   |
+   v
+FriendsView
+  |- Search user (email/nickname)
+  |- Kết bạn -> followUser() -> status pending
+  |- Tab "Đang theo dõi"
+  `- Tab "Theo dõi bạn" -> Chấp nhận -> acceptFollowRequest() -> status accepted
+```
+
+**E. Luồng Tab Cá nhân**
+
+```text
+MainScreen(Tab: Cá nhân)
+   |
+   v
+ProfileView
+  |- Cập nhật avatar (gallery -> cloud upload)
+  |- Thống kê cá nhân (chart theo tháng/chủ đề)
+  |- Nút "Tìm bạn bè" / "Danh sách bạn" -> FriendsView
+  `- Đăng xuất -> AuthView
+```
+
+#### 2.4.3 Widget Tree Mức Ứng Dụng
+
+```text
+LifeMapApp
+└── MultiProvider
+    └── MaterialApp
+        └── AuthWrapper
+            ├── AuthView
+            │   └── Scaffold
+            │       └── SafeArea
+            │           └── SingleChildScrollView
+            │               └── Form-like controls (name/email/password/buttons)
+            └── MainScreen
+                └── Scaffold
+                    ├── IndexedStack
+                    │   ├── MapView
+                    │   ├── TimelineView
+                    │   ├── FriendsView
+                    │   └── ProfileView
+                    └── NavigationBar
+```
+
+#### 2.4.4 Widget Tree Chi Tiết Theo Màn Hình Chính
+
+**MapView**
+
+```text
+MapView (StatefulWidget)
+└── Scaffold
+    ├── AppBar (search/filter controls)
+    └── StreamBuilder<List<MemoryModel>>
+        └── FlutterMap
+            ├── TileLayer (OSM)
+            ├── MarkerLayer (polaroid marker theo zoom level)
+            └── InteractionOptions (zoom/pan)
+
+Tap Marker
+└── showModalBottomSheet
+    ├── Memory info (title/address/topic/image/description)
+    ├── Reaction chips/emojis
+    └── Button mở MemoryDetailView
+```
+
+**TimelineView**
+
+```text
+TimelineView (StatefulWidget)
+└── Scaffold
+    ├── AppBar (group mode + filter actions)
+    └── FutureBuilder/List rendering
+        └── Group sections (week/month/year)
+            └── Memory item card
+                ├── Image thumbnail
+                ├── Metadata (date/topic/address)
+                └── PopupMenu (view/edit/delete)
+```
+
+**AddMemoryView**
+
+```text
+AddMemoryView (StatefulWidget)
+└── Scaffold
+    └── Form
+        ├── TextFields (title/description/address)
+        ├── Topic selector
+        ├── Date picker
+        ├── GPS section (lat/lng/accuracy)
+        ├── Image section (camera/gallery, preview list)
+        └── Save button
+```
+
+**FriendsView**
+
+```text
+FriendsView (StatefulWidget)
+└── DefaultTabController(length: 2)
+    └── Scaffold
+        ├── AppBar (search box)
+        ├── Suggested users horizontal list
+        ├── TabBar
+        └── TabBarView
+            ├── Following list
+            └── Followers / pending accept list
+```
+
+**ProfileView**
+
+```text
+ProfileView (StatefulWidget)
+└── Scaffold
+    ├── AppBar (logout)
+    └── StreamBuilder<List<MemoryModel>>
+        └── ListView
+            ├── Profile header (avatar, name, email)
+            ├── Friend shortcuts
+            ├── Monthly bar chart
+            └── Category pie chart
+```
+
+#### 2.4.5 Nguyên Tắc Thiết Kế Điều Hướng
+
+- Dùng `AuthWrapper` làm single source of truth cho route gốc theo trạng thái đăng nhập.
+- Dùng `IndexedStack` để bảo toàn state các tab, tối ưu trải nghiệm khi chuyển màn hình chính.
+- Các luồng thao tác chi tiết (xem/sửa/tạo memory) dùng `MaterialPageRoute` dạng push để giữ lịch sử điều hướng rõ ràng.
+- Tương tác ngữ cảnh nhanh (preview memory, reactions) dùng `BottomSheet` thay vì full-screen route để giảm thao tác.
+
+### 2.5 Thiết Kế Cấu Trúc Dữ Liệu Firestore
+
+#### 2.5.1 Collections & Document Structure
 
 **Collection: `users`**
 ```dart
@@ -707,7 +615,7 @@ Edge Cases:
   - updatedAt: Timestamp
 ```
 
-#### 2.4.2 Firestore Security Rules
+#### 2.5.2 Firestore Security Rules
 
 > **Quyết định thiết kế**: Sử dụng Security Rules để bảo vệ dữ liệu thay vì rely trên backend validation.
 
@@ -1391,14 +1299,14 @@ class AuthProvider extends ChangeNotifier {
 
 | Chức Năng | Trạng Thái | Ghi Chú |
 |-----------|-----------|--------|
-| Google Authentication | ✅ Hoàn thành | Tích hợp Firebase Auth |
+| Authentication (Email/Password + Google) | ✅ Hoàn thành | Tích hợp Firebase Auth đa phương thức |
 | Thêm kỷ niệm từ camera | ✅ Hoàn thành | Hỗ trợ GPS realtime |
 | Bản đồ tương tác | ✅ Hoàn thành | OpenStreetMap + flutter_map |
 | Lọc kỷ niệm | ✅ Hoàn thành | Théo chủ đề & người dùng |
 | Tìm bạn & Follow | ✅ Hoàn thành | Firestore relationships |
-| Quét QR hybrid | ✅ Hoàn thành | Camera + Gallery modes |
+| Quét QR hybrid | ⏳ Chưa triển khai | Đưa vào roadmap social (chưa có trong code hiện tại) |
 | Pre-built profiles | ✅ Hoàn thành | User profiles & settings |
-| Reactions (Likes) | ✅ Hoàn thành | Firestore real-time updates |
+| Reactions (Likes) | ⚠️ Triển khai một phần | Đã có thả cảm xúc trong map bottom sheet; chưa có module phản hồi đầy đủ |
 
 #### 4.1.2 Hiệu Năng & Tương Thích
 
@@ -1413,7 +1321,7 @@ class AuthProvider extends ChangeNotifier {
 #### 4.1.3 Bảo Mật & Quyền Riêng Tư
 
 ✅ **Firestore Security Rules** bảo vệ dữ liệu
-✅ **OAuth 2.0** cho xác thực an toàn
+✅ **Firebase Authentication** (Email/Password + Google OAuth) cho xác thực an toàn
 ✅ **GPS data** được mã hóa truyền tải
 ✅ **Memories** chỉ hiển thị cho chủ sở hữu & friends
 

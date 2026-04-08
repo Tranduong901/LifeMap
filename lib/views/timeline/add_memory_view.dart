@@ -40,6 +40,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
   double? _longitude;
   double? _gpsAccuracy;
   DateTime? _lastGpsAt;
+  bool _isLocationPinnedByUser = false;
 
   List<String> _imageUrls = <String>[];
   String _selectedTopic = MemoryTopic.citywalk;
@@ -59,6 +60,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
       _selectedDate = initial.date;
       _latitude = initial.lat;
       _longitude = initial.lng;
+      _isLocationPinnedByUser = true;
       _selectedTopic = initial.topic.isEmpty
           ? MemoryTopic.citywalk
           : initial.topic;
@@ -144,6 +146,8 @@ class _AddMemoryViewState extends State<AddMemoryView> {
         _longitude = position.longitude;
         _gpsAccuracy = position.accuracy;
         _lastGpsAt = position.timestamp;
+        // GPS is now the active source for saving location.
+        _isLocationPinnedByUser = false;
       });
 
       // Try to resolve address automatically if address field is empty
@@ -253,7 +257,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
       return;
     }
 
-    if (!_isGpsFresh()) {
+    if (!_isLocationPinnedByUser && !_isGpsFresh()) {
       await _detectCurrentLocation(showSuccessMessage: false);
     }
 
@@ -362,6 +366,8 @@ class _AddMemoryViewState extends State<AddMemoryView> {
       _longitude = point.longitude;
       _lastGpsAt = DateTime.now();
       _gpsAccuracy = null;
+      // Preserve this user-picked point; do not auto-refresh with current GPS.
+      _isLocationPinnedByUser = true;
     });
 
     try {
