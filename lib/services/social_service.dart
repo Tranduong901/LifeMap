@@ -26,6 +26,38 @@ class SocialService {
     return '${followerId}_$followingId';
   }
 
+  Future<Map<String, String>> _relationshipStatusByFollowingUid(
+    String currentUid,
+  ) async {
+    final QuerySnapshot<Map<String, dynamic>> relationSnapshot =
+        await _relationshipsRef
+            .where('followerId', isEqualTo: currentUid)
+            .get();
+    return <String, String>{
+      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+          in relationSnapshot.docs)
+        (doc.data()['followingId'] as String? ?? '').trim():
+            (doc.data()['status'] as String? ?? 'pending').trim(),
+    };
+  }
+
+  Map<String, dynamic> _mapUserSearchResult({
+    required String uid,
+    required Map<String, dynamic> data,
+    required Map<String, String> relationStatusByUser,
+  }) {
+    final String email = (data['email'] as String? ?? '').trim();
+    final String displayName = (data['displayName'] as String? ?? '').trim();
+    final String photoUrl = (data['photoUrl'] as String? ?? '').trim();
+    return <String, dynamic>{
+      'uid': uid,
+      'email': email,
+      'displayName': displayName,
+      'photoUrl': photoUrl,
+      'relationshipStatus': relationStatusByUser[uid] ?? 'none',
+    };
+  }
+
   Future<void> followUser(String targetUid) async {
     final String currentUid = _currentUid;
     final String normalizedTargetUid = targetUid.trim();
@@ -139,17 +171,8 @@ class SocialService {
         .limit(20)
         .get();
 
-    final QuerySnapshot<Map<String, dynamic>> relationSnapshot =
-        await _relationshipsRef
-            .where('followerId', isEqualTo: currentUid)
-            .get();
-
-    final Map<String, String> relationStatusByUser = <String, String>{
-      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-          in relationSnapshot.docs)
-        (doc.data()['followingId'] as String? ?? '').trim():
-            (doc.data()['status'] as String? ?? 'pending').trim(),
-    };
+    final Map<String, String> relationStatusByUser =
+        await _relationshipStatusByFollowingUid(currentUid);
 
     final List<Map<String, dynamic>> results = <Map<String, dynamic>>[];
     for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
@@ -160,19 +183,164 @@ class SocialService {
         continue;
       }
 
-      final String email = (data['email'] as String? ?? '').trim();
-      final String displayName = (data['displayName'] as String? ?? '').trim();
-      final String photoUrl = (data['photoUrl'] as String? ?? '').trim();
-      results.add(<String, dynamic>{
-        'uid': uid,
-        'email': email,
-        'displayName': displayName,
-        'photoUrl': photoUrl,
-        'relationshipStatus': relationStatusByUser[uid] ?? 'none',
-      });
+      results.add(
+        _mapUserSearchResult(
+          uid: uid,
+          data: data,
+          relationStatusByUser: relationStatusByUser,
+        ),
+      );
     }
 
     return results;
+  }
+
+  Future<List<Map<String, dynamic>>> searchUsersHybrid(String query) async {
+    final String keyword = query.trim();
+    if (keyword.isEmpty) {
+      return <Map<String, dynamic>>[];
+    }
+
+    final String currentUid = _currentUid;
+    final Map<String, String> relationStatusByUser =
+        await _relationshipStatusByFollowingUid(currentUid);
+    final List<Map<String, dynamic>> results = <Map<String, dynamic>>[];
+    final Set<String> seen = <String>{};
+
+    if (keyword.contains('@')) {
+      final QuerySnapshot<Map<String, dynamic>> userSnapshot = await _usersRef
+          .where('email', isEqualTo: keyword)
+          .limit(20)
+          .get();
+
+      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+          in userSnapshot.docs) {
+        final Map<String, dynamic> data = doc.data();
+        final String uid = (data['uid'] as String? ?? doc.id).trim();
+        if (uid.isEmpty || uid == currentUid || !seen.add(uid)) {
+          continue;
+        }
+        results.add(
+          _mapUserSearchResult(
+            uid: uid,
+            data: data,
+            relationStatusByUser: relationStatusByUser,
+          ),
+        );
+      }
+      return results;
+    }
+
+    // Nickname fuzzy search: lightweight client-side contains match
+    // to avoid requiring additional indexed fields.
+    final QuerySnapshot<Map<String, dynamic>> userSnapshot = await _usersRef
+        .limit(80)
+        .get();
+    final String keywordLower = keyword.toLowerCase();
+
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+        in userSnapshot.docs) {
+      final Map<String, dynamic> data = doc.data();
+      final String uid = (data['uid'] as String? ?? doc.id).trim();
+      if (uid.isEmpty || uid == currentUid || !seen.add(uid)) {
+        continue;
+      }
+
+      final String displayName = (data['displayName'] as String? ?? '').trim();
+      final String nickname = (data['nickname'] as String? ?? '').trim();
+      final String name = (data['name'] as String? ?? '').trim();
+      final bool matched =
+          displayName.toLowerCase().contains(keywordLower) ||
+          nickname.toLowerCase().contains(keywordLower) ||
+          name.toLowerCase().contains(keywordLower);
+      if (!matched) {
+        continue;
+      }
+
+      results.add(
+        _mapUserSearchResult(
+          uid: uid,
+          data: data,
+          relationStatusByUser: relationStatusByUser,
+        ),
+      );
+
+      if (results.length >= 20) {
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  Future<List<Map<String, dynamic>>> getSuggestedUsers({int limit = 12}) async {
+    final String currentUid = _currentUid;
+    final DocumentSnapshot<Map<String, dynamic>> meDoc = await _usersRef
+        .doc(currentUid)
+        .get();
+    final Map<String, dynamic> me = meDoc.data() ?? <String, dynamic>{};
+
+    final String myCity = (me['city'] as String? ?? '').trim().toLowerCase();
+    final Set<String> myTopics = <String>{
+      ((me['favoriteTopic'] as String?) ?? '').trim().toLowerCase(),
+      ((me['topic'] as String?) ?? '').trim().toLowerCase(),
+      ...((me['favoriteTopics'] is List)
+          ? (me['favoriteTopics'] as List).whereType<String>().map(
+              (String t) => t.trim().toLowerCase(),
+            )
+          : <String>[]),
+    }..removeWhere((String value) => value.isEmpty);
+
+    final Map<String, String> relationStatusByUser =
+        await _relationshipStatusByFollowingUid(currentUid);
+    final QuerySnapshot<Map<String, dynamic>> usersSnapshot = await _usersRef
+        .limit(80)
+        .get();
+
+    final List<Map<String, dynamic>> strongMatches = <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> weakMatches = <Map<String, dynamic>>[];
+
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+        in usersSnapshot.docs) {
+      final Map<String, dynamic> data = doc.data();
+      final String uid = (data['uid'] as String? ?? doc.id).trim();
+      if (uid.isEmpty || uid == currentUid) {
+        continue;
+      }
+
+      final String city = (data['city'] as String? ?? '').trim().toLowerCase();
+      final Set<String> topics = <String>{
+        ((data['favoriteTopic'] as String?) ?? '').trim().toLowerCase(),
+        ((data['topic'] as String?) ?? '').trim().toLowerCase(),
+        ...((data['favoriteTopics'] is List)
+            ? (data['favoriteTopics'] as List).whereType<String>().map(
+                (String t) => t.trim().toLowerCase(),
+              )
+            : <String>[]),
+      }..removeWhere((String value) => value.isEmpty);
+
+      final bool sameCity = myCity.isNotEmpty && city == myCity;
+      final bool sameTopic = myTopics.intersection(topics).isNotEmpty;
+
+      final Map<String, dynamic> mapped = _mapUserSearchResult(
+        uid: uid,
+        data: data,
+        relationStatusByUser: relationStatusByUser,
+      );
+      mapped['city'] = (data['city'] as String? ?? '').trim();
+
+      if (sameCity || sameTopic) {
+        strongMatches.add(mapped);
+      } else {
+        weakMatches.add(mapped);
+      }
+    }
+
+    final List<Map<String, dynamic>> merged = <Map<String, dynamic>>[
+      ...strongMatches,
+      ...weakMatches,
+    ];
+    return merged.take(limit).toList();
   }
 
   Stream<List<Map<String, dynamic>>> getFollowingProfilesStream({

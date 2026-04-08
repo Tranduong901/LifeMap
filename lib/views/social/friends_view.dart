@@ -1,5 +1,4 @@
-import 'dart:ui' as ui;
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/social_service.dart';
@@ -20,7 +19,15 @@ class _FriendsViewState extends State<FriendsView> {
 
   bool _isSearching = false;
   bool _showSearchOverlay = false;
+  bool _isLoadingSuggestions = false;
   List<Map<String, dynamic>> _searchResults = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _suggestedUsers = <Map<String, dynamic>>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSuggestions();
+  }
 
   @override
   void dispose() {
@@ -45,7 +52,7 @@ class _FriendsViewState extends State<FriendsView> {
 
     try {
       final List<Map<String, dynamic>> results = await _socialService
-          .searchUsersByEmail(keyword);
+          .searchUsersHybrid(keyword);
       if (!mounted) {
         return;
       }
@@ -66,10 +73,39 @@ class _FriendsViewState extends State<FriendsView> {
     }
   }
 
+  Future<void> _loadSuggestions() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isLoadingSuggestions = true);
+    try {
+      final List<Map<String, dynamic>> results = await _socialService
+          .getSuggestedUsers();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _suggestedUsers = results;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _suggestedUsers = <Map<String, dynamic>>[];
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingSuggestions = false);
+      }
+    }
+  }
+
   Future<void> _follow(String uid) async {
     try {
       await _socialService.followUser(uid);
       await _runSearch();
+      await _loadSuggestions();
       if (!mounted) {
         return;
       }
@@ -145,11 +181,30 @@ class _FriendsViewState extends State<FriendsView> {
       return CircleAvatar(
         radius: 25,
         backgroundColor: Colors.grey[200],
-        backgroundImage: NetworkImage(trimmedPhotoUrl),
-        onBackgroundImageError: (Object exception, StackTrace? stackTrace) {
-          // Fallback when image fails to load
-        },
-        child: const SizedBox.shrink(),
+        child: ClipOval(
+          child: CachedNetworkImage(
+            imageUrl: trimmedPhotoUrl,
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+            placeholder: (BuildContext context, String imageUrl) => Container(
+              color: Colors.grey.shade200,
+              alignment: Alignment.center,
+              child: const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+            errorWidget: (BuildContext context, String imageUrl, Object error) {
+              return Container(
+                color: _kBrand.withValues(alpha: 0.12),
+                alignment: Alignment.center,
+                child: Text(initials, style: const TextStyle(color: _kBrand)),
+              );
+            },
+          ),
+        ),
       );
     }
 
@@ -194,40 +249,172 @@ class _FriendsViewState extends State<FriendsView> {
       elevation: 0.8,
       shadowColor: const Color(0x2278909C),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: SizedBox(
+        height: 80,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: <Widget>[
+              _buildAvatar(
+                displayName: displayName,
+                email: email,
+                photoUrl: photoUrl,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      displayName.isEmpty ? 'Người dùng LifeMap' : displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: _kSubText),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              trailing,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionCard(Map<String, dynamic> item) {
+    final String displayName = (item['displayName'] as String? ?? '').trim();
+    final String email = (item['email'] as String? ?? '').trim();
+    final String city = (item['city'] as String? ?? '').trim();
+    final String status = (item['relationshipStatus'] as String? ?? 'none')
+        .trim()
+        .toLowerCase();
+    final String uid = (item['uid'] as String? ?? '').trim();
+
+    final bool canFollow = status != 'accepted' && status != 'pending';
+    final String actionText = status == 'accepted'
+        ? 'Đã kết nối'
+        : (status == 'pending' ? 'Đã gửi' : 'Kết bạn');
+
+    return Container(
+      width: 200,
+      margin: const EdgeInsets.only(right: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0x2278909C),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: <Widget>[
             _buildAvatar(
               displayName: displayName,
               email: email,
-              photoUrl: photoUrl,
+              photoUrl: (item['photoUrl'] as String? ?? '').trim(),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   Text(
                     displayName.isEmpty ? 'Người dùng LifeMap' : displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: _kBrand,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    email,
+                    city.isEmpty ? email : city,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _kSubText),
+                    style: const TextStyle(fontSize: 12, color: _kSubText),
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 30,
+                    child: FilledButton(
+                      onPressed: canFollow ? () => _follow(uid) : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _kBrand,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                      child: Text(actionText),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            trailing,
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestedSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Text(
+                'Gợi ý bạn bè',
+                style: TextStyle(
+                  color: _kBrand,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: _loadSuggestions,
+                child: const Text('Làm mới'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 112,
+            child: _isLoadingSuggestions
+                ? const Center(child: CircularProgressIndicator())
+                : _suggestedUsers.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Chưa có gợi ý phù hợp lúc này.',
+                      style: TextStyle(color: _kSubText),
+                    ),
+                  )
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _suggestedUsers.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      return _buildSuggestionCard(_suggestedUsers[index]);
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -327,44 +514,50 @@ class _FriendsViewState extends State<FriendsView> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: <Widget>[
-                                _buildAvatar(
-                                  displayName: displayName,
-                                  email: email,
-                                  photoUrl: (item['photoUrl'] as String? ?? '')
-                                      .trim(),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Text(
-                                        displayName.isEmpty
-                                            ? 'Người dùng LifeMap'
-                                            : displayName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        email,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
+                          child: SizedBox(
+                            height: 80,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  _buildAvatar(
+                                    displayName: displayName,
+                                    email: email,
+                                    photoUrl:
+                                        (item['photoUrl'] as String? ?? '')
+                                            .trim(),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                _buildSearchAction(item),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Text(
+                                          displayName.isEmpty
+                                              ? 'Người dùng LifeMap'
+                                              : displayName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          email,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildSearchAction(item),
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -384,100 +577,57 @@ class _FriendsViewState extends State<FriendsView> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF0F2F5),
         appBar: AppBar(
-          toolbarHeight: 60,
+          toolbarHeight: 72,
           elevation: 0,
           backgroundColor: Colors.white,
           foregroundColor: const Color(0xFF9575CD),
           centerTitle: true,
-          bottom: const PreferredSize(
-            preferredSize: Size.fromHeight(1),
-            child: Divider(height: 1, thickness: 1, color: Color(0x2278909C)),
-          ),
-          title: Text(
-            'Bạn bè',
-            style: const TextStyle(
-              color: Color(0xFF9575CD),
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-        ),
-        body: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: const Color(0x2278909C),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.search,
-                            onSubmitted: (_) => _runSearch(),
-                            decoration: InputDecoration(
-                              hintText: 'Nhập email để tìm...',
-                              prefixIcon: const Icon(
-                                Icons.search,
-                                color: _kBrand,
-                              ),
-                              filled: true,
-                              isDense: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: _kBrand.withValues(alpha: 0.4),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: _kBrand.withValues(alpha: 0.4),
-                                ),
-                              ),
-                              focusedBorder: const OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(12),
-                                ),
-                                borderSide: BorderSide(
-                                  color: _kBrand,
-                                  width: 1.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        FilledButton(
-                          onPressed: _isSearching ? null : _runSearch,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _kBrand,
-                          ),
-                          child: const Text('Tìm'),
-                        ),
-                      ],
-                    ),
+          title: SizedBox(
+            height: 44,
+            child: TextField(
+              controller: _searchController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _runSearch(),
+              decoration: InputDecoration(
+                hintText: 'Tìm Gmail hoặc nickname...',
+                prefixIcon: const Icon(Icons.search, color: _kBrand),
+                filled: true,
+                isDense: true,
+                fillColor: const Color(0xFFF5F7FA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(
+                    color: _kBrand.withValues(alpha: 0.28),
                   ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(
+                    color: _kBrand.withValues(alpha: 0.28),
+                  ),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(24)),
+                  borderSide: BorderSide(color: _kBrand, width: 1),
                 ),
               ),
             ),
+          ),
+          actions: <Widget>[
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: FilledButton(
+                onPressed: _isSearching ? null : _runSearch,
+                style: FilledButton.styleFrom(backgroundColor: _kBrand),
+                child: const Text('Tìm'),
+              ),
+            ),
+          ],
+        ),
+        body: Column(
+          children: <Widget>[
+            _buildSuggestedSection(),
             Container(
               color: Colors.white,
               child: const TabBar(

@@ -52,6 +52,18 @@ service cloud.firestore {
         && data.date != null;
     }
 
+    function isValidReactionData() {
+      return request.resource.data.reactions is list
+        && request.resource.data.reactions.size() <= 200;
+    }
+
+    function isReactionOnlyUpdate() {
+      return request.resource.data.diff(resource.data)
+          .changedKeys()
+          .hasOnly(['reactions', 'updatedAt'])
+        && isValidReactionData();
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
       allow update, delete: if isOwner(userId);
@@ -97,8 +109,16 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && isValidMemoryData(request.resource.data);
 
-      allow update, delete: if isOwner(resource.data.userId)
-        && isValidMemoryData(request.resource.data);
+      allow update: if (
+          isOwner(resource.data.userId)
+          && isValidMemoryData(request.resource.data)
+        )
+        || (
+          canReadMemory(resource.data.userId)
+          && isReactionOnlyUpdate()
+        );
+
+      allow delete: if isOwner(resource.data.userId);
     }
   }
 }

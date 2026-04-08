@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:latlong2/latlong.dart' as ll;
 
@@ -43,6 +45,7 @@ class _MapViewState extends State<MapView> {
   final MapController _osmMapController = MapController();
   ll.LatLng _osmCenter = const ll.LatLng(21.0285, 105.8542);
   double _osmZoom = 12;
+  final String _filterMode = 'all';
   final Set<String> _selectedTopics = <String>{};
 
   int _markerDetailLevel(double zoom) {
@@ -74,6 +77,34 @@ class _MapViewState extends State<MapView> {
       return false;
     }
     return memory.userId != currentUid;
+  }
+
+  void _updateMapViewport(ll.LatLng center, double zoom) {
+    final bool hasChanged =
+        (_osmZoom - zoom).abs() > 0.01 || center != _osmCenter;
+    if (!hasChanged || !mounted) {
+      return;
+    }
+
+    void applyUpdate() {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _osmCenter = center;
+        _osmZoom = zoom;
+      });
+    }
+
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        applyUpdate();
+      });
+      return;
+    }
+
+    applyUpdate();
   }
 
   Widget _buildPolaroidMarker(
@@ -172,42 +203,33 @@ class _MapViewState extends State<MapView> {
     required double height,
     BoxFit fit = BoxFit.cover,
   }) {
-    return Image.network(
-      url,
+    return CachedNetworkImage(
+      imageUrl: url,
       width: width,
       height: height,
       fit: fit,
-      loadingBuilder:
-          (
-            BuildContext context,
-            Widget child,
-            ImageChunkEvent? loadingProgress,
-          ) {
-            if (loadingProgress == null) {
-              return child;
-            }
-            return Container(
-              width: width,
-              height: height,
-              color: Colors.grey.shade200,
-              alignment: Alignment.center,
-              child: const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          },
-      errorBuilder:
-          (BuildContext context, Object error, StackTrace? stackTrace) {
-            return Container(
-              width: width,
-              height: height,
-              color: Colors.grey.shade200,
-              alignment: Alignment.center,
-              child: const Icon(Icons.broken_image, color: Colors.grey),
-            );
-          },
+      placeholder: (BuildContext context, String imageUrl) {
+        return Container(
+          width: width,
+          height: height,
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+      errorWidget: (BuildContext context, String imageUrl, Object error) {
+        return Container(
+          width: width,
+          height: height,
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: const Icon(Icons.broken_image, color: Colors.grey),
+        );
+      },
     );
   }
 
@@ -221,12 +243,23 @@ class _MapViewState extends State<MapView> {
 
   List<MemoryModel> _filterMapMemories(List<MemoryModel> memories) {
     final String keyword = _searchController.text.trim().toLowerCase();
+    final String? currentUid = _currentUid;
+
     return memories.where((MemoryModel memory) {
       final bool keywordMatched =
           keyword.isEmpty || memory.title.toLowerCase().contains(keyword);
       final bool topicMatched =
           _selectedTopics.isEmpty || _selectedTopics.contains(memory.topic);
-      return keywordMatched && topicMatched;
+      final bool ownerMatched;
+      if (_filterMode == 'me') {
+        ownerMatched = currentUid != null && memory.userId == currentUid;
+      } else if (_filterMode == 'friends') {
+        ownerMatched = currentUid != null && memory.userId != currentUid;
+      } else {
+        ownerMatched = true;
+      }
+
+      return keywordMatched && topicMatched && ownerMatched;
     }).toList();
   }
 
@@ -787,14 +820,7 @@ class _MapViewState extends State<MapView> {
             initialCenter: _osmCenter,
             initialZoom: 12,
             onPositionChanged: (MapCamera camera, bool hasGesture) {
-              final ll.LatLng center = camera.center;
-              final double zoom = camera.zoom;
-              if ((_osmZoom - zoom).abs() > 0.01 || center != _osmCenter) {
-                setState(() {
-                  _osmCenter = center;
-                  _osmZoom = zoom;
-                });
-              }
+              _updateMapViewport(camera.center, camera.zoom);
             },
           ),
           children: <Widget>[
