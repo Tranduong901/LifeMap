@@ -414,29 +414,7 @@ class _MapViewState extends State<MapView> {
                     ),
                   const SizedBox(height: 8),
                   // Reactions summary
-                  if (memory.reactions.isNotEmpty) ...<Widget>[
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: memory.reactions
-                          .fold<Map<String, int>>(<String, int>{}, (
-                            Map<String, int> acc,
-                            ReactionModel r,
-                          ) {
-                            acc[r.type] = (acc[r.type] ?? 0) + 1;
-                            return acc;
-                          })
-                          .entries
-                          .map(
-                            (MapEntry<String, int> e) => Chip(
-                              label: Text('${e.key} ${e.value}'),
-                              backgroundColor: Colors.white,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                  // reaction-count summary removed; reactor bar below shows details
                   Chip(
                     avatar: Icon(
                       Icons.circle,
@@ -550,6 +528,63 @@ class _MapViewState extends State<MapView> {
                       }),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  // Reactor bar: show avatar + emoji + name in a single horizontal scroll row
+                  if (memory.reactions.isNotEmpty)
+                    SizedBox(
+                      height: 44,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: memory.reactions.map<Widget>((
+                            ReactionModel r,
+                          ) {
+                            final String display = r.displayName.isNotEmpty
+                                ? r.displayName
+                                : (r.userId.isNotEmpty
+                                      ? r.userId.substring(0, 6)
+                                      : 'Người');
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Chip(
+                                backgroundColor: Colors.white,
+                                avatar: r.photoUrl.isNotEmpty
+                                    ? CircleAvatar(
+                                        backgroundImage: NetworkImage(
+                                          r.photoUrl,
+                                        ),
+                                      )
+                                    : CircleAvatar(
+                                        backgroundColor: _kLavender.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        child: Text(
+                                          display.isNotEmpty
+                                              ? display[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    Text(
+                                      display,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      r.type,
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
