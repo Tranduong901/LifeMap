@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,6 +23,7 @@ class ProfileView extends StatefulWidget {
 class _ProfileViewState extends State<ProfileView> {
   final MemoryService _memoryService = MemoryService();
   bool _isUploading = false;
+  bool _isUpdatingName = false;
   DateTime _selectedMonth = DateTime.now();
   int _selectedYear = DateTime.now().year;
 
@@ -57,6 +59,160 @@ class _ProfileViewState extends State<ProfileView> {
     } finally {
       if (mounted) {
         setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  Future<void> _showEditDisplayNameDialog() async {
+    final User? user = _currentUser;
+    if (user == null) {
+      return;
+    }
+
+    final TextEditingController nameController = TextEditingController(
+      text: user.displayName?.trim() ?? '',
+    );
+
+    final String? newName = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final ColorScheme cs = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          backgroundColor: const Color(0xFFFDFBFF),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+          contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          title: Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0x1A9575CD),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  size: 18,
+                  color: Color(0xFF9575CD),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Chỉnh sửa tên người dùng',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: Color(0xFF5E35B1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: TextField(
+            controller: nameController,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            maxLength: 40,
+            decoration: InputDecoration(
+              labelText: 'Tên hiển thị',
+              hintText: 'Nhập tên mới',
+              filled: true,
+              fillColor: const Color(0xFFF4F0FB),
+              prefixIcon: const Icon(Icons.edit_outlined, size: 20),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0x339575CD)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0x339575CD)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: cs.primary, width: 1.5),
+              ),
+            ),
+            onSubmitted: (_) {
+              Navigator.of(dialogContext).pop(nameController.text);
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF6B5E7A),
+              ),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF9575CD),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(nameController.text);
+              },
+              child: const Text('Lưu'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nameController.dispose();
+
+    if (newName == null) {
+      return;
+    }
+
+    final String normalizedName = newName.trim();
+    if (normalizedName.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tên hiển thị không được để trống.')),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _isUpdatingName = true);
+      await user.updateDisplayName(normalizedName);
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        <String, dynamic>{
+          'displayName': normalizedName,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      await user.reload();
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã cập nhật tên người dùng.')),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Không thể cập nhật tên: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingName = false);
       }
     }
   }
@@ -365,19 +521,45 @@ class _ProfileViewState extends State<ProfileView> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      Text(
-                        displayName.isNotEmpty
-                            ? displayName
-                            : 'Người dùng LifeMap',
-                        textAlign: TextAlign.center,
-                        style:
-                            tt.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ) ??
-                            const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Flexible(
+                            child: Text(
+                              displayName.isNotEmpty
+                                  ? displayName
+                                  : 'Người dùng LifeMap',
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  tt.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ) ??
+                                  const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            tooltip: 'Chỉnh sửa tên',
+                            iconSize: 20,
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _isUpdatingName
+                                ? null
+                                : _showEditDisplayNameDialog,
+                            icon: _isUpdatingName
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Icon(Icons.edit, color: cs.primary),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
