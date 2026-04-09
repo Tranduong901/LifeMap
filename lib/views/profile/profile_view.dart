@@ -22,6 +22,7 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   final MemoryService _memoryService = MemoryService();
+  final AuthService _authService = AuthService();
   bool _isUploading = false;
   bool _isUpdatingName = false;
   DateTime _selectedMonth = DateTime.now();
@@ -186,15 +187,7 @@ class _ProfileViewState extends State<ProfileView> {
 
     try {
       setState(() => _isUpdatingName = true);
-      await user.updateDisplayName(normalizedName);
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        <String, dynamic>{
-          'displayName': normalizedName,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-      await user.reload();
+      await _authService.updateDisplayName(normalizedName);
 
       if (!mounted) {
         return;

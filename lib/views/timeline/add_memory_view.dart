@@ -34,6 +34,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
 
   final MemoryService _memoryService = MemoryService();
   final CloudinaryService _cloudinaryService = CloudinaryService();
+  final MapController _mapController = MapController();
 
   DateTime _selectedDate = DateTime.now();
   double? _latitude;
@@ -46,6 +47,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
   String _selectedTopic = MemoryTopic.citywalk;
   bool _isSaving = false;
   bool _isLocating = false;
+  bool _isResolvingAddress = false;
 
   bool get _isEditMode => widget.initialMemory != null;
 
@@ -149,6 +151,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
         // GPS is now the active source for saving location.
         _isLocationPinnedByUser = false;
       });
+      _moveMapToSelectedLocation();
 
       // Try to resolve address automatically if address field is empty
       try {
@@ -247,6 +250,74 @@ class _AddMemoryViewState extends State<AddMemoryView> {
     return diff.inSeconds <= 20;
   }
 
+  void _moveMapToSelectedLocation({double zoom = 15}) {
+    if (_latitude == null || _longitude == null) {
+      return;
+    }
+    try {
+      _mapController.move(ll.LatLng(_latitude!, _longitude!), zoom);
+    } catch (_) {
+      // Ignore when map controller is not ready yet.
+    }
+  }
+
+  Future<bool> _resolveTypedAddressAndPinToMap({
+    bool showError = true,
+    bool showSuccess = false,
+  }) async {
+    final String typedAddress = _addressController.text.trim();
+    if (typedAddress.isEmpty) {
+      if (showError) {
+        _showMessage('Vui lòng nhập địa chỉ trước khi định vị.');
+      }
+      return false;
+    }
+
+    setState(() => _isResolvingAddress = true);
+    try {
+      final Map<String, double>? resolved =
+          await LocationService.getLatLngFromAddress(typedAddress);
+
+      if (resolved == null ||
+          resolved['lat'] == null ||
+          resolved['lng'] == null) {
+        if (showError) {
+          _showMessage(
+            'Không thể định vị theo địa chỉ đã nhập. Vui lòng kiểm tra địa chỉ hoặc chọn điểm trên bản đồ.',
+          );
+        }
+        return false;
+      }
+
+      if (!mounted) {
+        return false;
+      }
+
+      setState(() {
+        _latitude = resolved['lat'];
+        _longitude = resolved['lng'];
+        _lastGpsAt = DateTime.now();
+        _gpsAccuracy = null;
+        _isLocationPinnedByUser = true;
+      });
+      _moveMapToSelectedLocation();
+
+      if (showSuccess) {
+        _showMessage('Đã định vị theo địa chỉ nhập.');
+      }
+      return true;
+    } catch (e) {
+      if (showError) {
+        _showMessage('Không thể định vị theo địa chỉ: $e');
+      }
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _isResolvingAddress = false);
+      }
+    }
+  }
+
   Future<void> _saveMemory() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -255,6 +326,17 @@ class _AddMemoryViewState extends State<AddMemoryView> {
     if (_imageUrls.isEmpty) {
       _showMessage('Vui lòng thêm ít nhất 1 ảnh trước khi lưu kỷ niệm.');
       return;
+    }
+
+    final String typedAddress = _addressController.text.trim();
+    if (typedAddress.isNotEmpty) {
+      final bool resolved = await _resolveTypedAddressAndPinToMap(
+        showError: true,
+        showSuccess: false,
+      );
+      if (!resolved) {
+        return;
+      }
     }
 
     if (!_isLocationPinnedByUser && !_isGpsFresh()) {
@@ -369,6 +451,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
       // Preserve this user-picked point; do not auto-refresh with current GPS.
       _isLocationPinnedByUser = true;
     });
+    _moveMapToSelectedLocation();
 
     try {
       final String resolved = await LocationService.getAddressFromLatLng(
@@ -454,9 +537,43 @@ class _AddMemoryViewState extends State<AddMemoryView> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _addressController,
+                      textInputAction: TextInputAction.done,
                       decoration: _fieldDecoration(
                         label: 'Địa chỉ (tùy chọn)',
                         icon: Icons.place_outlined,
+                      ),
+                      onFieldSubmitted: (_) {
+                        if (_isSaving || _isResolvingAddress) {
+                          return;
+                        }
+                        _resolveTypedAddressAndPinToMap(
+                          showError: true,
+                          showSuccess: true,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: (_isSaving || _isResolvingAddress)
+                            ? null
+                            : () {
+                                _resolveTypedAddressAndPinToMap(
+                                  showError: true,
+                                  showSuccess: true,
+                                );
+                              },
+                        icon: _isResolvingAddress
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.search),
+                        label: const Text('Định vị theo địa chỉ'),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -575,6 +692,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
                           ),
                         ),
                         child: FlutterMap(
+                          mapController: _mapController,
                           options: MapOptions(
                             initialCenter: ll.LatLng(
                               _latitude ?? 21.0285,

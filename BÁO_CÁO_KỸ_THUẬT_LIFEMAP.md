@@ -636,18 +636,95 @@ Xem file `firestore.rules` để chi tiết.
 
 ## CHƯƠNG 3: CÀI ĐẶT VÀ TRÌNH DIỄN
 
-### 3.1 Kiến Trúc Ứng Dụng
+### 3.1 Mô Tả Cài Đặt Các Chức Năng Cốt Lõi (Logic Xử Lý)
 
-```
+#### 3.1.1 Cách Tổ Chức Mã Nguồn
+
+```text
 lib/
-├── main.dart                           # Entry point
-├── models/                             # Data models (Memory, User, Relationship)
-├── providers/                          # State management (Provider, ChangeNotifier)
-├── services/                           # Business logic (Auth, Firestore, Camera)
-├── views/                              # UI Pages (Home, Map, Create, Profile, etc.)
-├── widgets/                            # Reusable widgets (MemoryCard, MapMarker, etc.)
-└── utils/                              # Utilities (Constants, Helpers, Extensions)
+├── main.dart            # Bootstrap Firebase + root routing (AuthWrapper)
+├── models/              # MemoryModel, ReactionModel, MemoryTopic
+├── providers/           # MainNavigationProvider (state tab)
+├── services/            # AuthService, MemoryService, SocialService, ReactionService
+├── views/               # Auth, Map, Timeline, Friends, Profile, AddMemory
+└── widgets/             # Thành phần UI tái sử dụng
 ```
+
+Nguyên tắc triển khai:
+- **Service layer** xử lý nghiệp vụ + truy cập dữ liệu (Firebase/Cloudinary).
+- **View layer** tập trung điều hướng và tương tác UI.
+- **Provider** giữ state điều hướng chính (tab index), tránh business logic nằm rải rác trong widget.
+
+#### 3.1.2 Logic Cài Đặt Theo Chức Năng
+
+**1) Xác thực đa phương thức (Email/Password + Google)**
+- `AuthView` điều khiển hai luồng đăng nhập/đăng ký email-mật khẩu và đăng nhập Google.
+- `AuthService` là nơi gọi Firebase Auth API.
+- Sau xác thực thành công, hệ thống đồng bộ hồ sơ user vào collection `users`.
+- `AuthWrapper` lắng nghe `authStateChanges()` để tự động chuyển giữa `AuthView` và `MainScreen`.
+
+**2) Tạo kỷ niệm (ảnh + metadata + vị trí)**
+- `AddMemoryView` thu thập thông tin (title, description, topic, date, address).
+- Ảnh được chụp/chọn rồi upload qua `CloudinaryService`.
+- Vị trí lấy từ GPS hoặc người dùng chọn trên mini-map.
+- `MemoryService.saveMemory()` lưu dữ liệu chuẩn hóa vào Firestore.
+
+**3) Hiển thị dữ liệu bản đồ theo quyền xã hội**
+- `SocialService.getAcceptedFollowingIdsStream()` trả về danh sách user được phép xem.
+- `MapView` hợp nhất danh sách này với user hiện tại để tạo tập `socialUserIds`.
+- `MemoryService.getMemoriesForUserIdsStream()` chỉ tải memories thuộc tập id hợp lệ.
+- Marker trên map render theo zoom-level, giảm chi tiết ở zoom thấp để tối ưu hiệu năng.
+
+**4) Thả cảm xúc (reaction)**
+- UI reaction nằm trong bottom sheet của `MapView`.
+- `ReactionService.setReaction()` ghi/ghi đè reaction theo `userId`.
+- `ReactionService.removeReaction()` xóa reaction khi người dùng chọn lại cùng emoji.
+
+**5) Timeline và lọc dữ liệu**
+- `TimelineView` áp dụng lọc theo keyword + khoảng ngày.
+- Dữ liệu được nhóm theo tuần/tháng/năm bằng `TimelineGroupMode`.
+- Người dùng thao tác nhanh qua menu item: xem chi tiết, sửa, xóa.
+
+#### 3.1.3 Đoạn Code Tiêu Biểu (State + Data Access Control)
+
+Đoạn dưới đây là **code nguyên văn từ source**, thể hiện phần lõi của cơ chế đồng bộ state quan hệ bạn bè theo realtime Firestore.
+
+Nguồn code:
+- File: `lib/services/social_service.dart`
+- Dòng: `140-158`
+
+```dart
+Stream<List<String>> getAcceptedFollowingIdsStream() {
+  final String currentUid = _currentUid;
+  return _relationshipsRef
+      .where('followerId', isEqualTo: currentUid)
+      .where('status', isEqualTo: 'accepted')
+      .snapshots()
+      .map((QuerySnapshot<Map<String, dynamic>> snapshot) {
+        final Set<String> ids = <String>{};
+        for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+            in snapshot.docs) {
+          final String followingId =
+              (doc.data()['followingId'] as String? ?? '').trim();
+          if (followingId.isNotEmpty) {
+            ids.add(followingId);
+          }
+        }
+        return ids.toList();
+      });
+}
+```
+
+Giải thích ngắn gọn:
+- Hàm stream trên lắng nghe collection `social_relationships` theo thời gian thực.
+- Chỉ các quan hệ có `status = accepted` mới được đưa vào danh sách quyền xem.
+- Danh sách ID này được sử dụng tại `lib/views/map/map_view.dart` (dòng `632` và `659`) để giới hạn tập memories được tải theo quyền truy cập.
+
+#### 3.1.4 Nhận Xét Kỹ Thuật
+
+- Thiết kế stream lồng nhau phù hợp cho yêu cầu realtime của Firestore.
+- Phân tách `Service` giúp test logic dễ hơn và giảm phụ thuộc giữa UI với backend.
+- Hướng mở rộng: có thể tách thêm ViewModel/Controller cho từng màn hình để giảm độ phức tạp của widget stateful lớn (đặc biệt ở `MapView`, `TimelineView`).
 
 ### 3.2 Xử Lý Lỗi Lifecycle Collision
 
