@@ -70,9 +70,7 @@ class _ProfileViewState extends State<ProfileView> {
       return;
     }
 
-    final TextEditingController nameController = TextEditingController(
-      text: _displayNameOverride ?? user.displayName?.trim() ?? '',
-    );
+    String draftName = _displayNameOverride ?? user.displayName?.trim() ?? '';
 
     final String? newName = await showDialog<String>(
       context: context,
@@ -114,8 +112,8 @@ class _ProfileViewState extends State<ProfileView> {
               ),
             ],
           ),
-          content: TextField(
-            controller: nameController,
+          content: TextFormField(
+            initialValue: draftName,
             autofocus: true,
             textInputAction: TextInputAction.done,
             maxLength: 40,
@@ -138,8 +136,11 @@ class _ProfileViewState extends State<ProfileView> {
                 borderSide: BorderSide(color: cs.primary, width: 1.5),
               ),
             ),
-            onSubmitted: (_) {
-              Navigator.of(dialogContext).pop(nameController.text);
+            onChanged: (String value) {
+              draftName = value;
+            },
+            onFieldSubmitted: (_) {
+              Navigator.of(dialogContext).pop(draftName);
             },
           ),
           actions: <Widget>[
@@ -159,7 +160,7 @@ class _ProfileViewState extends State<ProfileView> {
                 ),
               ),
               onPressed: () {
-                Navigator.of(dialogContext).pop(nameController.text);
+                Navigator.of(dialogContext).pop(draftName);
               },
               child: const Text('Lưu'),
             ),
@@ -167,8 +168,6 @@ class _ProfileViewState extends State<ProfileView> {
         );
       },
     );
-
-    nameController.dispose();
 
     if (newName == null) {
       return;

@@ -267,11 +267,34 @@ class AuthService {
     }
 
     try {
+      final DocumentSnapshot<Map<String, dynamic>> existingDoc = await _usersRef
+          .doc(user.uid)
+          .get();
+      final Map<String, dynamic> existingData =
+          existingDoc.data() ?? <String, dynamic>{};
+      final String authDisplayName = (user.displayName ?? '').trim();
+      final String firestoreDisplayName =
+          (existingData['displayName'] as String? ?? '').trim();
+
+      // Never let a login sync overwrite an existing name with an empty one.
+      final String resolvedDisplayName = authDisplayName.isNotEmpty
+          ? authDisplayName
+          : firestoreDisplayName;
+
+      // If Auth profile is missing name but Firestore has one, restore it.
+      if (authDisplayName.isEmpty && firestoreDisplayName.isNotEmpty) {
+        try {
+          await user.updateDisplayName(firestoreDisplayName);
+        } catch (e) {
+          debugPrint('Không thể phục hồi displayName vào Firebase Auth: $e');
+        }
+      }
+
       final String sanitizedPhotoUrl = _sanitizeRemoteUrl(user.photoURL);
       await _usersRef.doc(user.uid).set(<String, dynamic>{
         'uid': user.uid,
         'email': user.email ?? '',
-        'displayName': user.displayName ?? '',
+        'displayName': resolvedDisplayName,
         'photoUrl': sanitizedPhotoUrl,
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
