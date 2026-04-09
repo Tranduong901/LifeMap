@@ -706,7 +706,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
                           children: <Widget>[
                             TileLayer(
                               urlTemplate:
-                                  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png',
+                                  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
                               subdomains: const <String>['a', 'b', 'c'],
                               userAgentPackageName: 'vn.edu.tlu.nhom7.lifemap',
                             ),

@@ -212,6 +212,32 @@ class AuthService {
     }
   }
 
+  /// Cập nhật tên hiển thị và đồng bộ vào document users/{uid}.
+  Future<void> updateDisplayName(String displayName) async {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Không tìm thấy thông tin người dùng.');
+    }
+
+    final String normalizedDisplayName = displayName.trim();
+    if (normalizedDisplayName.isEmpty) {
+      throw Exception('Tên hiển thị không được để trống.');
+    }
+
+    await user.updateDisplayName(normalizedDisplayName);
+
+    final String sanitizedPhotoUrl = _sanitizeRemoteUrl(user.photoURL);
+    await _usersRef.doc(user.uid).set(<String, dynamic>{
+      'uid': user.uid,
+      'email': user.email ?? '',
+      'displayName': normalizedDisplayName,
+      'photoUrl': sanitizedPhotoUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await user.reload();
+  }
+
   /// Tạo document người dùng trong collection users nếu chưa tồn tại.
   Future<void> _createUserDocIfNeeded(User? user) async {
     if (user == null) {
