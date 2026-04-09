@@ -224,18 +224,40 @@ class AuthService {
       throw Exception('Tên hiển thị không được để trống.');
     }
 
-    await user.updateDisplayName(normalizedDisplayName);
-
     final String sanitizedPhotoUrl = _sanitizeRemoteUrl(user.photoURL);
-    await _usersRef.doc(user.uid).set(<String, dynamic>{
-      'uid': user.uid,
-      'email': user.email ?? '',
-      'displayName': normalizedDisplayName,
-      'photoUrl': sanitizedPhotoUrl,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      await _usersRef.doc(user.uid).set(<String, dynamic>{
+        'uid': user.uid,
+        'email': user.email ?? '',
+        'displayName': normalizedDisplayName,
+        'photoUrl': sanitizedPhotoUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } on FirebaseException catch (e) {
+      // Name in Firebase Auth is already updated; keep UX successful
+      // and let profile sync retry naturally on next sign-in/session.
+      debugPrint(
+        'Không thể đồng bộ displayName lên Firestore: ${e.code} - ${e.message}',
+      );
+    }
 
-    await user.reload();
+    try {
+      await user.updateDisplayName(normalizedDisplayName);
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+        'Không thể cập nhật displayName trong Firebase Auth: ${e.code} - ${e.message}',
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Không thể cập nhật displayName trong Firebase Auth: ${e.code} - ${e.message}',
+      );
+    }
+
+    try {
+      await user.reload();
+    } catch (e) {
+      debugPrint('Không thể tải lại hồ sơ người dùng sau khi đổi tên: $e');
+    }
   }
 
   /// Tạo document người dùng trong collection users nếu chưa tồn tại.

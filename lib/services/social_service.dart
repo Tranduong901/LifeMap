@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 
 class SocialService {
   SocialService({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore})
@@ -95,6 +96,103 @@ class SocialService {
     final String currentUid = _currentUid;
     final String docId = _docIdFor(currentUid, targetUid.trim());
     await _relationshipsRef.doc(docId).delete();
+  }
+
+  Stream<List<Map<String, dynamic>>> _watchProfilesFromRelationshipQuery(
+    Query<Map<String, dynamic>> query,
+    String otherIdField,
+  ) {
+    final StreamController<List<Map<String, dynamic>>> controller =
+        StreamController<List<Map<String, dynamic>>>.broadcast();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? relationSub;
+    final List<StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
+    userSubs = <StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>[];
+    final Map<String, Map<String, dynamic>> userDataById =
+        <String, Map<String, dynamic>>{};
+    final Map<String, String> statusById = <String, String>{};
+
+    void emitCurrent() {
+      final List<Map<String, dynamic>> profiles = <Map<String, dynamic>>[];
+      for (final String uid in statusById.keys) {
+        final Map<String, dynamic> userData =
+            userDataById[uid] ??
+            <String, dynamic>{
+              'uid': uid,
+              'email': '',
+              'displayName': '',
+              'photoUrl': '',
+            };
+        profiles.add(<String, dynamic>{
+          'uid': uid,
+          'email': (userData['email'] as String? ?? '').trim(),
+          'displayName': (userData['displayName'] as String? ?? '').trim(),
+          'photoUrl': (userData['photoUrl'] as String? ?? '').trim(),
+          'status': statusById[uid] ?? 'pending',
+        });
+      }
+      if (!controller.isClosed) {
+        controller.add(profiles);
+      }
+    }
+
+    Future<void> resetUserListeners(Set<String> ids) async {
+      for (final StreamSubscription<DocumentSnapshot<Map<String, dynamic>>> sub
+          in userSubs) {
+        await sub.cancel();
+      }
+      userSubs.clear();
+      userDataById.clear();
+
+      for (final String uid in ids) {
+        userSubs.add(
+          _usersRef.doc(uid).snapshots().listen((
+            DocumentSnapshot<Map<String, dynamic>> userDoc,
+          ) {
+            final Map<String, dynamic> data =
+                userDoc.data() ??
+                <String, dynamic>{
+                  'uid': uid,
+                  'email': '',
+                  'displayName': '',
+                  'photoUrl': '',
+                };
+            userDataById[uid] = data;
+            emitCurrent();
+          }),
+        );
+      }
+    }
+
+    relationSub = query.snapshots().listen((
+      QuerySnapshot<Map<String, dynamic>> snapshot,
+    ) async {
+      statusById.clear();
+      final Set<String> ids = <String>{};
+      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+          in snapshot.docs) {
+        final Map<String, dynamic> data = doc.data();
+        final String uid = (data[otherIdField] as String? ?? '').trim();
+        final String status = (data['status'] as String? ?? 'pending').trim();
+        if (uid.isEmpty) {
+          continue;
+        }
+        ids.add(uid);
+        statusById[uid] = status;
+      }
+
+      await resetUserListeners(ids);
+      emitCurrent();
+    }, onError: controller.addError);
+
+    controller.onCancel = () async {
+      await relationSub?.cancel();
+      for (final StreamSubscription<DocumentSnapshot<Map<String, dynamic>>> sub
+          in userSubs) {
+        await sub.cancel();
+      }
+    };
+
+    return controller.stream;
   }
 
   Future<List<String>> getFollowingList({String status = 'accepted'}) async {
@@ -354,42 +452,7 @@ class SocialService {
     if (status.trim().isNotEmpty) {
       query = query.where('status', isEqualTo: status);
     }
-
-    return query.snapshots().asyncMap((
-      QuerySnapshot<Map<String, dynamic>> snapshot,
-    ) async {
-      final List<Map<String, dynamic>> profiles = <Map<String, dynamic>>[];
-      for (final QueryDocumentSnapshot<Map<String, dynamic>> relationDoc
-          in snapshot.docs) {
-        final Map<String, dynamic> relationData = relationDoc.data();
-        final String followingId =
-            (relationData['followingId'] as String? ?? '').trim();
-        final String relationStatus =
-            (relationData['status'] as String? ?? 'pending').trim();
-        if (followingId.isEmpty) {
-          continue;
-        }
-        final DocumentSnapshot<Map<String, dynamic>> userDoc = await _usersRef
-            .doc(followingId)
-            .get();
-        final Map<String, dynamic> userData =
-            userDoc.data() ??
-            <String, dynamic>{
-              'uid': followingId,
-              'email': '',
-              'displayName': '',
-              'photoUrl': '',
-            };
-        profiles.add(<String, dynamic>{
-          'uid': followingId,
-          'email': (userData['email'] as String? ?? '').trim(),
-          'displayName': (userData['displayName'] as String? ?? '').trim(),
-          'photoUrl': (userData['photoUrl'] as String? ?? '').trim(),
-          'status': relationStatus,
-        });
-      }
-      return profiles;
-    });
+    return _watchProfilesFromRelationshipQuery(query, 'followingId');
   }
 
   Stream<List<Map<String, dynamic>>> getFollowersProfilesStream({
@@ -403,41 +466,6 @@ class SocialService {
     if (status != null && status.trim().isNotEmpty) {
       query = query.where('status', isEqualTo: status.trim());
     }
-
-    return query.snapshots().asyncMap((
-      QuerySnapshot<Map<String, dynamic>> snapshot,
-    ) async {
-      final List<Map<String, dynamic>> profiles = <Map<String, dynamic>>[];
-      for (final QueryDocumentSnapshot<Map<String, dynamic>> relationDoc
-          in snapshot.docs) {
-        final Map<String, dynamic> relationData = relationDoc.data();
-        final String followerId = (relationData['followerId'] as String? ?? '')
-            .trim();
-        final String relationStatus =
-            (relationData['status'] as String? ?? 'pending').trim();
-        if (followerId.isEmpty) {
-          continue;
-        }
-        final DocumentSnapshot<Map<String, dynamic>> userDoc = await _usersRef
-            .doc(followerId)
-            .get();
-        final Map<String, dynamic> userData =
-            userDoc.data() ??
-            <String, dynamic>{
-              'uid': followerId,
-              'email': '',
-              'displayName': '',
-              'photoUrl': '',
-            };
-        profiles.add(<String, dynamic>{
-          'uid': followerId,
-          'email': (userData['email'] as String? ?? '').trim(),
-          'displayName': (userData['displayName'] as String? ?? '').trim(),
-          'photoUrl': (userData['photoUrl'] as String? ?? '').trim(),
-          'status': relationStatus,
-        });
-      }
-      return profiles;
-    });
+    return _watchProfilesFromRelationshipQuery(query, 'followerId');
   }
 }

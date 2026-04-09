@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -25,6 +24,7 @@ class _ProfileViewState extends State<ProfileView> {
   final AuthService _authService = AuthService();
   bool _isUploading = false;
   bool _isUpdatingName = false;
+  String? _displayNameOverride;
   DateTime _selectedMonth = DateTime.now();
   int _selectedYear = DateTime.now().year;
 
@@ -71,7 +71,7 @@ class _ProfileViewState extends State<ProfileView> {
     }
 
     final TextEditingController nameController = TextEditingController(
-      text: user.displayName?.trim() ?? '',
+      text: _displayNameOverride ?? user.displayName?.trim() ?? '',
     );
 
     final String? newName = await showDialog<String>(
@@ -192,7 +192,9 @@ class _ProfileViewState extends State<ProfileView> {
       if (!mounted) {
         return;
       }
-      setState(() {});
+      setState(() {
+        _displayNameOverride = normalizedName;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã cập nhật tên người dùng.')),
       );
@@ -342,7 +344,8 @@ class _ProfileViewState extends State<ProfileView> {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme tt = Theme.of(context).textTheme;
     final User? user = _currentUser;
-    final String displayName = user?.displayName?.trim() ?? '';
+    final String displayName =
+        _displayNameOverride ?? user?.displayName?.trim() ?? '';
     final String initials = _getInitials(displayName);
     final String? photoUrl = _safePhotoUrl(user?.photoURL);
 

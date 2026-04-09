@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -31,6 +32,7 @@ class _AddMemoryViewState extends State<AddMemoryView> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _customTopicController = TextEditingController();
+  Timer? _addressDebounceTimer;
 
   final MemoryService _memoryService = MemoryService();
   final CloudinaryService _cloudinaryService = CloudinaryService();
@@ -48,12 +50,14 @@ class _AddMemoryViewState extends State<AddMemoryView> {
   bool _isSaving = false;
   bool _isLocating = false;
   bool _isResolvingAddress = false;
+  bool _suppressAddressListener = false;
 
   bool get _isEditMode => widget.initialMemory != null;
 
   @override
   void initState() {
     super.initState();
+    _addressController.addListener(_handleAddressChanged);
     final MemoryModel? initial = widget.initialMemory;
     if (initial != null) {
       _titleController.text = initial.title;
@@ -92,11 +96,32 @@ class _AddMemoryViewState extends State<AddMemoryView> {
 
   @override
   void dispose() {
+    _addressDebounceTimer?.cancel();
+    _addressController.removeListener(_handleAddressChanged);
     _titleController.dispose();
     _descriptionController.dispose();
     _addressController.dispose();
     _customTopicController.dispose();
     super.dispose();
+  }
+
+  void _handleAddressChanged() {
+    if (_suppressAddressListener || _isSaving) {
+      return;
+    }
+
+    _addressDebounceTimer?.cancel();
+    final String typedAddress = _addressController.text.trim();
+    if (typedAddress.isEmpty) {
+      return;
+    }
+
+    _addressDebounceTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted || _isSaving || _isResolvingAddress) {
+        return;
+      }
+      _resolveTypedAddressAndPinToMap(showError: false, showSuccess: false);
+    });
   }
 
   Future<void> _pickDate() async {
@@ -160,7 +185,9 @@ class _AddMemoryViewState extends State<AddMemoryView> {
           _longitude!,
         );
         if (mounted && _addressController.text.trim().isEmpty) {
+          _suppressAddressListener = true;
           setState(() => _addressController.text = resolved);
+          _suppressAddressListener = false;
         }
       } catch (e) {
         _logDebug('Reverse geocoding thất bại: $e');
@@ -293,14 +320,19 @@ class _AddMemoryViewState extends State<AddMemoryView> {
         return false;
       }
 
-      setState(() {
-        _latitude = resolved['lat'];
-        _longitude = resolved['lng'];
-        _lastGpsAt = DateTime.now();
-        _gpsAccuracy = null;
-        _isLocationPinnedByUser = true;
-      });
-      _moveMapToSelectedLocation();
+      _suppressAddressListener = true;
+      try {
+        setState(() {
+          _latitude = resolved['lat'];
+          _longitude = resolved['lng'];
+          _lastGpsAt = DateTime.now();
+          _gpsAccuracy = null;
+          _isLocationPinnedByUser = true;
+        });
+        _moveMapToSelectedLocation();
+      } finally {
+        _suppressAddressListener = false;
+      }
 
       if (showSuccess) {
         _showMessage('Đã định vị theo địa chỉ nhập.');
@@ -459,7 +491,12 @@ class _AddMemoryViewState extends State<AddMemoryView> {
         point.longitude,
       );
       if (mounted) {
-        setState(() => _addressController.text = resolved);
+        _suppressAddressListener = true;
+        try {
+          setState(() => _addressController.text = resolved);
+        } finally {
+          _suppressAddressListener = false;
+        }
       }
     } catch (e) {
       _logDebug('Reverse geocoding từ mini-map thất bại: $e');
@@ -699,6 +736,9 @@ class _AddMemoryViewState extends State<AddMemoryView> {
                               _longitude ?? 105.8542,
                             ),
                             initialZoom: _latitude == null ? 10 : 15,
+                            onMapReady: () {
+                              _moveMapToSelectedLocation();
+                            },
                             onTap: (_, ll.LatLng point) {
                               _setLocationFromMapTap(point);
                             },
